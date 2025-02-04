@@ -137,18 +137,19 @@
 
   <script>
     async function fetchAllOdds() {
-      try {
-        // En production, pensez à adapter l'URL du backend si nécessaire
-        const response = await fetch('http://localhost:3000/all-odds');
-        if (!response.ok) throw new Error(`Erreur HTTP : ${response.status}`);
-        const data = await response.json();
-        renderOddsTable(data);
-      } catch (error) {
-        console.error("Erreur lors de la récupération des cotes :", error);
-        const tableBody = document.querySelector('#oddsTable tbody');
-        tableBody.innerHTML = '<tr><td colspan="5">Impossible de charger les données. Réessayez plus tard.</td></tr>';
-      }
-    }
+	  try {
+		// Utilisation d'une URL relative pour pointer vers le même domaine que celui du frontend
+		const response = await fetch('/all-odds');
+		if (!response.ok) throw new Error(`Erreur HTTP : ${response.status}`);
+		const data = await response.json();
+		renderOddsTable(data);
+	  } catch (error) {
+		console.error("Erreur lors de la récupération des cotes :", error);
+		const tableBody = document.querySelector('#oddsTable tbody');
+		tableBody.innerHTML = '<tr><td colspan="5">Impossible de charger les données. Réessayez plus tard.</td></tr>';
+	  }
+	}
+
 
     // La fonction calculateArbitrage() calcule les paris d'arbitrage possibles entre les bookmakers d'un événement.
     // La modification apportée consiste à filtrer les paires dont les bookmakers sont identiques.
