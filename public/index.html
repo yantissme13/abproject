@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Opportunités de Paris d'Arbitrage</title>
   <style>
+    /* Styles par défaut (pour PC) */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -95,6 +96,53 @@
       color: green;
       font-weight: bold;
     }
+    
+    /* Media queries spécifiques pour mobiles (iPhone, Android) */
+    @media (max-width: 600px) {
+      /* Réduction des marges et du padding pour optimiser l'espace */
+      body {
+        padding: 10px;
+      }
+      header {
+        font-size: 1.2rem;
+        padding: 15px;
+      }
+      .tabs {
+        flex-direction: column;
+        gap: 10px;
+        margin: 5px 0;
+      }
+      .tabs button {
+        padding: 8px 15px;
+        font-size: 0.9rem;
+      }
+      .totals {
+        flex-direction: column;
+        gap: 10px;
+        margin: 5px 0;
+      }
+      .totals p {
+        width: 100%;
+        min-width: unset;
+        padding: 8px;
+        font-size: 0.9rem;
+      }
+      .container {
+        margin: 10px;
+        padding: 10px;
+      }
+      table {
+        margin: 10px 0;
+      }
+      table th, table td {
+        padding: 5px;
+        font-size: 0.8rem;
+      }
+      .btn {
+        padding: 5px 8px;
+        font-size: 0.8rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -137,22 +185,21 @@
 
   <script>
     async function fetchAllOdds() {
-	  try {
-		// Utilisation d'une URL relative pour pointer vers le même domaine que celui du frontend
-		const response = await fetch('/all-odds');
-		if (!response.ok) throw new Error(`Erreur HTTP : ${response.status}`);
-		const data = await response.json();
-		renderOddsTable(data);
-	  } catch (error) {
-		console.error("Erreur lors de la récupération des cotes :", error);
-		const tableBody = document.querySelector('#oddsTable tbody');
-		tableBody.innerHTML = '<tr><td colspan="5">Impossible de charger les données. Réessayez plus tard.</td></tr>';
-	  }
-	}
-
+      try {
+        // Utilisation d'une URL relative pour pointer vers le même domaine que le frontend
+        const response = await fetch('/all-odds');
+        if (!response.ok) throw new Error(`Erreur HTTP : ${response.status}`);
+        const data = await response.json();
+        renderOddsTable(data);
+      } catch (error) {
+        console.error("Erreur lors de la récupération des cotes :", error);
+        const tableBody = document.querySelector('#oddsTable tbody');
+        tableBody.innerHTML = '<tr><td colspan="5">Impossible de charger les données. Réessayez plus tard.</td></tr>';
+      }
+    }
 
     // La fonction calculateArbitrage() calcule les paris d'arbitrage possibles entre les bookmakers d'un événement.
-    // La modification apportée consiste à filtrer les paires dont les bookmakers sont identiques.
+    // On filtre les paires où les bookmakers sont identiques pour éviter des incohérences.
     function calculateArbitrage(bookmakers) {
       const arbitrageMap = new Map();
       const totalMise = 100;
@@ -409,7 +456,6 @@
 
     // Actualiser les données toutes les 5 secondes
     setInterval(fetchAllOdds, 5000);
-
     // Charger une première fois
     fetchAllOdds();
   </script>
