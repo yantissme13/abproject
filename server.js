@@ -1,4 +1,4 @@
-require('dotenv').config(); // Charger les variables d'environnement
+require('dotenv').config(); // Charger les variables d'environnement 
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -12,10 +12,11 @@ const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.API_KEY || "28595ca16f06375a6806c0f40e095d44"; // Clé API avec valeur par défaut
 const BASE_API_URL = "https://api.the-odds-api.com/v4";
 
-// Cache (1 heure pour les sports et 6 heures pour les cotes)
-// Note : sportsCache n'est pas utilisé actuellement mais est conservé pour d'éventuelles optimisations futures.
+// Cache : 
+// - sportsCache reste à 1 heure (3600 secondes) pour une éventuelle utilisation ultérieure
+// - oddsCache est mis à jour toutes les 60 secondes pour avoir des cotes récentes
 const sportsCache = new NodeCache({ stdTTL: 3600 });
-const oddsCache = new NodeCache({ stdTTL: 21600 });
+const oddsCache = new NodeCache({ stdTTL: 60 }); // Mise à jour toutes les 60 secondes
 
 // Middleware
 app.use(cors());
@@ -80,7 +81,7 @@ app.get('/all-odds', async (req, res) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Pour toute requête non gérée par les routes ci-dessus, retourner le fichier index.html
-// Cela est utile notamment pour une application monopage (SPA)
+// (utile pour une application monopage)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
