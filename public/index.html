@@ -181,7 +181,7 @@
   </div>
 
   <script>
-    // Stockage global des événements récupérés pour traitement ultérieur
+    // Stockage global des événements récupérés
     let globalEvents = [];
 
     async function fetchAllOdds() {
@@ -193,30 +193,30 @@
         renderOddsTable(data);
       } catch (error) {
         console.error("Erreur lors de la récupération des cotes :", error);
-        document.querySelector('#oddsTable tbody').innerHTML = '<tr><td colspan="5">Impossible de charger les données. Réessayez plus tard.</td></tr>';
+        document.querySelector('#oddsTable tbody').innerHTML =
+          '<tr><td colspan="5">Impossible de charger les données. Réessayez plus tard.</td></tr>';
       }
     }
 
-    // Fonction pour supprimer les doublons sur l'ensemble du tableau.
-    // Ici, on génère une clé unique pour chaque côté du pari basée sur l'événement, le bookmaker, l'équipe et la cote arrondie à 2 décimales.
-    // On ne conserve que la paire avec le gain maximum pour chaque clé.
-    function removeDuplicates(arbitragePairs) {
-      const bestByKey = {};
+    // Nouvelle fonction pour supprimer les doublons sur l'ensemble du tableau
+    // Ici, nous voulons que pour chaque "slot" (côté du pari) le couple (bookmaker, équipe, cote arrondie) n'apparaisse qu'une seule fois.
+    // Nous parcourons les paires triées par gain décroissant et, en ordre décroissant, nous ne gardons qu'une paire si aucune des clés des deux côtés n'a été déjà utilisée.
+    function filterUniqueBets(arbitragePairs) {
+      // Trier d'abord par gain décroissant
+      arbitragePairs.sort((a, b) => parseFloat(b.gain) - parseFloat(a.gain));
+      const seen = new Set();
+      const uniquePairs = [];
       arbitragePairs.forEach(pair => {
-        // Générer deux clés, une pour chaque côté
-        const keyA = `${pair.event}_${pair.bookmaker1}_${pair.team1}_${parseFloat(pair.odds1).toFixed(2)}`;
-        const keyB = `${pair.event}_${pair.bookmaker2}_${pair.team2}_${parseFloat(pair.odds2).toFixed(2)}`;
-        // Mettre à jour pour chaque clé si le gain est supérieur
-        if (!bestByKey[keyA] || pair.gain > bestByKey[keyA].gain) {
-          bestByKey[keyA] = pair;
-        }
-        if (!bestByKey[keyB] || pair.gain > bestByKey[keyB].gain) {
-          bestByKey[keyB] = pair;
+        const keyA = `${pair.bookmaker1}-${pair.team1}-${parseFloat(pair.odds1).toFixed(2)}`;
+        const keyB = `${pair.bookmaker2}-${pair.team2}-${parseFloat(pair.odds2).toFixed(2)}`;
+        // Si aucun des deux "slots" n'a encore été utilisé, on ajoute la paire et on marque les clés
+        if (!seen.has(keyA) && !seen.has(keyB)) {
+          uniquePairs.push(pair);
+          seen.add(keyA);
+          seen.add(keyB);
         }
       });
-      // Pour obtenir l'union, nous utilisons un Set sur les objets obtenus
-      const uniquePairs = new Set(Object.values(bestByKey));
-      return Array.from(uniquePairs);
+      return uniquePairs;
     }
 
     // Fonction de calcul d'arbitrage (inchangée)
@@ -340,9 +340,11 @@
         });
       });
 
-      // Supprimer les doublons en ne conservant que la meilleure occurrence pour chaque clé
-      const filteredPairs = removeDuplicates(allArbitragePairs);
-      // Tri par gain décroissant
+      // Appliquer la suppression des doublons sur l'ensemble des paires,
+      // afin que pour chaque même combinaison (bookmaker, équipe, cote) dans un même événement,
+      // seule la paire avec le meilleur gain soit conservée.
+      const filteredPairs = filterUniqueBets(allArbitragePairs);
+      // Tri final par gain décroissant
       filteredPairs.sort((a, b) => parseFloat(b.gain) - parseFloat(a.gain));
 
       filteredPairs.forEach(pair => {
@@ -369,6 +371,25 @@
       document.getElementById('totalEvents').textContent = totalEvents;
 
       renderBookmakersTab(filteredPairs);
+    }
+
+    // Nouvelle fonction de filtrage pour ne conserver qu'une seule occurrence par "slot"
+    function filterUniqueBets(arbitragePairs) {
+      // On trie par gain décroissant pour traiter en priorité les meilleures combinaisons
+      arbitragePairs.sort((a, b) => parseFloat(b.gain) - parseFloat(a.gain));
+      const seen = new Set();
+      const uniquePairs = [];
+      arbitragePairs.forEach(pair => {
+        const keyA = `${pair.event}-${pair.bookmaker1}-${pair.team1}-${parseFloat(pair.odds1).toFixed(2)}`;
+        const keyB = `${pair.event}-${pair.bookmaker2}-${pair.team2}-${parseFloat(pair.odds2).toFixed(2)}`;
+        // Si aucune des deux clés n'a déjà été rencontrée, on garde la paire et on enregistre les clés
+        if (!seen.has(keyA) && !seen.has(keyB)) {
+          uniquePairs.push(pair);
+          seen.add(keyA);
+          seen.add(keyB);
+        }
+      });
+      return uniquePairs;
     }
 
     // Fonction d'agrégation pour le classement des 10 bookmakers les plus rentables
