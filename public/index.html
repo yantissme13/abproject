@@ -51,7 +51,7 @@
       color: #333;
       border: 1px solid #ddd;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       font-weight: bold;
       text-align: center;
       min-width: 150px;
@@ -61,7 +61,7 @@
       margin: 20px auto;
       padding: 10px;
       background-color: white;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
       border-radius: 8px;
     }
     table {
@@ -96,7 +96,6 @@
       color: green;
       font-weight: bold;
     }
-    
     /* Media queries pour mobiles (iPhone, Android) */
     @media (max-width: 600px) {
       body {
@@ -190,33 +189,33 @@
         const response = await fetch('/all-odds');
         if (!response.ok) throw new Error(`Erreur HTTP : ${response.status}`);
         const data = await response.json();
-        globalEvents = data; // Stocker pour usage dans removeDuplicates
+        globalEvents = data;
         renderOddsTable(data);
       } catch (error) {
         console.error("Erreur lors de la récupération des cotes :", error);
-        const tableBody = document.querySelector('#oddsTable tbody');
-        tableBody.innerHTML = '<tr><td colspan="5">Impossible de charger les données. Réessayez plus tard.</td></tr>';
+        document.querySelector('#oddsTable tbody').innerHTML = '<tr><td colspan="5">Impossible de charger les données. Réessayez plus tard.</td></tr>';
       }
     }
 
-    // Nouvelle fonction pour supprimer les doublons basés sur la cote, le bookmaker et l'équipe
+    // Fonction pour supprimer les doublons sur l'ensemble du tableau.
+    // Ici, on génère une clé unique pour chaque côté du pari basée sur l'événement, le bookmaker, l'équipe et la cote arrondie à 2 décimales.
+    // On ne conserve que la paire avec le gain maximum pour chaque clé.
     function removeDuplicates(arbitragePairs) {
-      const bestForOutcome = {};
+      const bestByKey = {};
       arbitragePairs.forEach(pair => {
-        // Clé pour le côté 1
-        const keyA = `${pair.event}-${pair.bookmaker1}-${pair.team1}-${parseFloat(pair.odds1).toFixed(2)}`;
-        // Clé pour le côté 2
-        const keyB = `${pair.event}-${pair.bookmaker2}-${pair.team2}-${parseFloat(pair.odds2).toFixed(2)}`;
-        // Pour chaque côté, on met à jour si le gain est supérieur
-        if (!bestForOutcome[keyA] || pair.gain > bestForOutcome[keyA].gain) {
-          bestForOutcome[keyA] = pair;
+        // Générer deux clés, une pour chaque côté
+        const keyA = `${pair.event}_${pair.bookmaker1}_${pair.team1}_${parseFloat(pair.odds1).toFixed(2)}`;
+        const keyB = `${pair.event}_${pair.bookmaker2}_${pair.team2}_${parseFloat(pair.odds2).toFixed(2)}`;
+        // Mettre à jour pour chaque clé si le gain est supérieur
+        if (!bestByKey[keyA] || pair.gain > bestByKey[keyA].gain) {
+          bestByKey[keyA] = pair;
         }
-        if (!bestForOutcome[keyB] || pair.gain > bestForOutcome[keyB].gain) {
-          bestForOutcome[keyB] = pair;
+        if (!bestByKey[keyB] || pair.gain > bestByKey[keyB].gain) {
+          bestByKey[keyB] = pair;
         }
       });
-      // Retourner l'union des paires stockées (uniques)
-      const uniquePairs = new Set(Object.values(bestForOutcome));
+      // Pour obtenir l'union, nous utilisons un Set sur les objets obtenus
+      const uniquePairs = new Set(Object.values(bestByKey));
       return Array.from(uniquePairs);
     }
 
@@ -317,7 +316,7 @@
       return Array.from(arbitrageMap.values());
     }
 
-    // Fonction de rendu du tableau des opportunités d'arbitrage avec suppression des doublons
+    // Fonction de rendu du tableau des opportunités d'arbitrage
     function renderOddsTable(data) {
       const tableBody = document.querySelector('#oddsTable tbody');
       tableBody.innerHTML = '';
@@ -341,7 +340,7 @@
         });
       });
 
-      // Supprimer les doublons sur tout le tableau
+      // Supprimer les doublons en ne conservant que la meilleure occurrence pour chaque clé
       const filteredPairs = removeDuplicates(allArbitragePairs);
       // Tri par gain décroissant
       filteredPairs.sort((a, b) => parseFloat(b.gain) - parseFloat(a.gain));
