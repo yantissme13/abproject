@@ -99,7 +99,6 @@
     
     /* Media queries spécifiques pour mobiles (iPhone, Android) */
     @media (max-width: 600px) {
-      /* Réduction des marges et du padding pour optimiser l'espace */
       body {
         padding: 10px;
       }
@@ -198,8 +197,8 @@
       }
     }
 
-    // La fonction calculateArbitrage() calcule les paris d'arbitrage possibles entre les bookmakers d'un événement.
-    // On filtre les paires où les bookmakers sont identiques pour éviter des incohérences.
+    // La fonction calculateArbitrage calcule les paris d'arbitrage et y ajoute des "paris lambda" (couverture lambda) pour simuler un comportement de parieur lambda.
+    // Pour chaque bookmaker, en plus du pari d'arbitrage, on ajoute 2 paris lambda avec des montants faibles (ici 5% et 7% de la mise d'arbitrage).
     function calculateArbitrage(bookmakers) {
       const arbitrageMap = new Map();
       const totalMise = 100;
@@ -279,6 +278,13 @@
                   }
 
                   if (bestGain > 0 && bestData !== null) {
+                    // Ajout des paris lambda pour simuler un comportement de parieur lambda.
+                    // Pour chaque bookmaker, on ajoute deux paris avec des montants faibles (5% et 7% de la mise d'arbitrage).
+                    bestData.randomBetA1 = bestData.stake1 * 0.05;
+                    bestData.randomBetA2 = bestData.stake1 * 0.07;
+                    bestData.randomBetB1 = bestData.stake2 * 0.05;
+                    bestData.randomBetB2 = bestData.stake2 * 0.07;
+
                     // Création d'une clé unique basée sur le marché et les cotes
                     const betKey = `${marketA.key}-${bestData.odds1}-${bestData.odds2}`;
                     if (!arbitrageMap.has(betKey) || parseFloat(arbitrageMap.get(betKey).gain) < bestGain) {
@@ -290,10 +296,15 @@
                         odds2: bestData.odds2,
                         stake1: bestData.stake1,
                         stake2: bestData.stake2,
-                        gain: bestGain, // gardé sous forme numérique pour le tri, puis formaté lors de l'affichage
+                        gain: bestGain,
                         team1: bestData.team1,
                         team2: bestData.team2,
-                        links: bestData.links
+                        links: bestData.links,
+                        // Intégration des paris lambda (2 par bookmaker)
+                        randomBetA1: bestData.randomBetA1,
+                        randomBetA2: bestData.randomBetA2,
+                        randomBetB1: bestData.randomBetB1,
+                        randomBetB2: bestData.randomBetB2
                       });
                     }
                   }
@@ -303,7 +314,6 @@
           });
       });
 
-      // Retourner les valeurs uniques du Map
       return Array.from(arbitrageMap.values());
     }
 
@@ -326,7 +336,6 @@
         totalBookmakers += event.bookmakers.length;
 
         arbitragePairs.forEach(pair => {
-          // Enrichir chaque pari avec les informations de l'événement
           allArbitragePairs.push({
             sport: event.sport_key,
             event: `${event.home_team || 'N/A'} vs ${event.away_team || 'N/A'}`,
@@ -339,7 +348,9 @@
       allArbitragePairs.sort((a, b) => parseFloat(b.gain) - parseFloat(a.gain));
 
       allArbitragePairs.forEach(pair => {
+        // Ligne principale pour le pari d'arbitrage
         const row = document.createElement('tr');
+        row.className = "main-row";
         row.innerHTML = `
           <td>${pair.sport || 'N/A'}</td>
           <td>${pair.event}</td>
@@ -354,6 +365,39 @@
           <td class="arbitrage">Gain : ${parseFloat(pair.gain).toFixed(2)}€</td>
         `;
         tableBody.appendChild(row);
+
+        // Ligne de détails cachée pour afficher les paris lambda
+        if (pair.randomBetA1 !== undefined && pair.randomBetB1 !== undefined) {
+          const detailRow = document.createElement('tr');
+          detailRow.className = "detail-row";
+          detailRow.style.display = "none";
+          detailRow.innerHTML = `
+            <td colspan="5">
+              <div style="display: flex; justify-content: space-around;">
+                <div>
+                  <strong>${pair.bookmaker1} (Pari lambda) :</strong>
+                  <ul style="list-style-type: none; padding: 0; margin: 0;">
+                    <li>Pari 1 : ${pair.randomBetA1.toFixed(2)}€</li>
+                    <li>Pari 2 : ${pair.randomBetA2.toFixed(2)}€</li>
+                  </ul>
+                </div>
+                <div>
+                  <strong>${pair.bookmaker2} (Pari lambda) :</strong>
+                  <ul style="list-style-type: none; padding: 0; margin: 0;">
+                    <li>Pari 1 : ${pair.randomBetB1.toFixed(2)}€</li>
+                    <li>Pari 2 : ${pair.randomBetB2.toFixed(2)}€</li>
+                  </ul>
+                </div>
+              </div>
+            </td>
+          `;
+          tableBody.appendChild(detailRow);
+
+          // Ajout d'un événement clic sur la ligne principale pour basculer l'affichage des détails
+          row.addEventListener('click', () => {
+            detailRow.style.display = detailRow.style.display === 'none' ? 'table-row' : 'none';
+          });
+        }
       });
 
       document.getElementById('totalBookmakers').textContent = totalBookmakers;
@@ -367,10 +411,8 @@
     // Fonction qui agrège les données pour créer le classement des 10 bookmakers les plus rentables
     // ainsi que la liste de tous les paris (sans doublons) sur ces 10 bookmakers.
     function renderBookmakersTab(allArbitragePairs) {
-      // Agrégation par bookmaker
       const bookmakersAggregation = {}; // { bookmakerName: { totalGain, count, bets: {} } }
       allArbitragePairs.forEach(bet => {
-        // Pour bookmaker1
         const name1 = bet.bookmaker1;
         if (!bookmakersAggregation[name1]) {
           bookmakersAggregation[name1] = { totalGain: 0, count: 0, bets: {} };
@@ -378,7 +420,7 @@
         bookmakersAggregation[name1].totalGain += parseFloat(bet.gain);
         bookmakersAggregation[name1].count += 1;
         bookmakersAggregation[name1].bets[bet.key] = bet;
-        // Pour bookmaker2
+        
         const name2 = bet.bookmaker2;
         if (!bookmakersAggregation[name2]) {
           bookmakersAggregation[name2] = { totalGain: 0, count: 0, bets: {} };
@@ -388,12 +430,10 @@
         bookmakersAggregation[name2].bets[bet.key] = bet;
       });
 
-      // Transformation en tableau puis tri décroissant par totalGain
       let sortedBookmakers = Object.entries(bookmakersAggregation)
         .sort((a, b) => b[1].totalGain - a[1].totalGain)
         .slice(0, 10);
 
-      // Création du contenu HTML pour le classement
       let html = '<h2>Top 10 Bookmakers Rentables</h2>';
       html += '<table><thead><tr><th>Rang</th><th>Bookmaker</th><th>Total Gain</th><th>Nombre d\'opportunités</th></tr></thead><tbody>';
       sortedBookmakers.forEach((entry, index) => {
@@ -408,7 +448,6 @@
       });
       html += '</tbody></table>';
 
-      // Récupérer tous les paris uniques associés aux top 10 bookmakers
       const uniqueBets = {};
       sortedBookmakers.forEach(entry => {
         const bets = entry[1].bets;
