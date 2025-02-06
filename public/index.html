@@ -183,12 +183,15 @@
   </div>
 
   <script>
+    // Stocker globalement les événements récupérés pour pouvoir rechercher des événements de couverture
+    let globalEvents = [];
+
     async function fetchAllOdds() {
       try {
-        // Utilisation d'une URL relative pour pointer vers le même domaine que le frontend
         const response = await fetch('/all-odds');
         if (!response.ok) throw new Error(`Erreur HTTP : ${response.status}`);
         const data = await response.json();
+        globalEvents = data; // sauvegarder pour la recherche de couvertures
         renderOddsTable(data);
       } catch (error) {
         console.error("Erreur lors de la récupération des cotes :", error);
@@ -197,10 +200,34 @@
       }
     }
 
-    // La fonction calculateArbitrage calcule les paris d'arbitrage et y ajoute 4 paris lambda réels.
-    // Pour chaque bookmaker, nous essayons de récupérer des outcomes supplémentaires pour représenter de véritables options de couverture.
-    // Si le marché offre plus de 2 outcomes, nous utilisons le 3ème et le 4ème outcome (s'ils existent) ;
-    // sinon, nous tombons sur un fallback (qui reste un calcul léger) pour garantir qu'on affiche quelque chose.
+    // Fonction pour rechercher de vrais événements (différents) pour un bookmaker donné
+    function getHedgeBetsForBookmaker(bookmaker, currentEvent, allEvents) {
+      const bets = [];
+      allEvents.forEach(event => {
+        // Construit le nom de l'événement de l'API (exemple: "Home vs Away")
+        const eventName = `${event.home_team || 'N/A'} vs ${event.away_team || 'N/A'}`;
+        // Vérifie que l'événement est différent de l'événement du pari d'arbitrage
+        if (eventName !== currentEvent) {
+          // Vérifie que ce bookmaker figure parmi les bookmakers de cet événement
+          const bm = event.bookmakers && event.bookmakers.find(b => b.title === bookmaker);
+          if (bm && bm.markets && bm.markets.length > 0) {
+            // Utilisons, par exemple, le premier outcome du premier marché pour construire le pari de couverture
+            if (bm.markets[0].outcomes && bm.markets[0].outcomes.length > 0) {
+              bets.push({
+                event: eventName,
+                odds: bm.markets[0].outcomes[0].price,
+                team: bm.markets[0].outcomes[0].name,
+                variation: "Réel"
+              });
+            }
+          }
+        }
+      });
+      // Retourne les deux premiers paris trouvés (s'il y en a)
+      return bets.slice(0, 2);
+    }
+
+    // La fonction calculateArbitrage calcule les paris d'arbitrage et prépare un objet pour chaque pari sans les couvertures
     function calculateArbitrage(bookmakers) {
       const arbitrageMap = new Map();
       const totalMise = 100;
@@ -218,7 +245,6 @@
                   marketA.outcomes.length >= 2 &&
                   marketB.outcomes.length >= 2
                 ) {
-                  // --- Combination 1 : utiliser le premier résultat de bookmakerA et le deuxième de bookmakerB ---
                   const outcomeA1 = marketA.outcomes[0];
                   const outcomeB2 = marketB.outcomes[1];
                   let gain1 = 0, stake1_comb1 = 0, stake2_comb1 = 0;
@@ -232,7 +258,6 @@
                     gain1 = Math.min(stake1_comb1 * outcomeA1.price, stake2_comb1 * outcomeB2.price) - totalMise;
                   }
 
-                  // --- Combination 2 : utiliser le premier résultat de bookmakerB et le deuxième de bookmakerA ---
                   const outcomeB1 = marketB.outcomes[0];
                   const outcomeA2 = marketA.outcomes[1];
                   let gain2 = 0, stake1_comb2 = 0, stake2_comb2 = 0;
@@ -248,7 +273,6 @@
 
                   let bestGain = 0;
                   let bestData = null;
-
                   if (gain1 > bestGain) {
                     bestGain = gain1;
                     bestData = {
@@ -277,74 +301,7 @@
                       links: [bookmakerB.url, bookmakerA.url]
                     };
                   }
-
                   if (bestGain > 0 && bestData !== null) {
-                    // Pour chaque bookmaker, tenter de récupérer de vraies options de couverture
-                    // Si le marché fournit plus de 2 outcomes, utiliser le 3ème et éventuellement le 4ème outcome.
-                    // Pour Bookmaker A :
-                    if(marketA.outcomes.length >= 3) {
-                      bestData.coverageA1 = {
-                        event: "Couverture réelle pour " + bestData.bookmaker1,
-                        odds: marketA.outcomes[2].price,
-                        team: marketA.outcomes[2].name,
-                        variation: "Option 1"
-                      };
-                    } else {
-                      // Fallback simulé (si aucune donnée supplémentaire n'est disponible)
-                      bestData.coverageA1 = {
-                        event: "Couverture pour " + bestData.bookmaker1,
-                        odds: bestData.odds1 * 0.98,
-                        team: bestData.team1,
-                        variation: "-2%"
-                      };
-                    }
-                    if(marketA.outcomes.length >= 4) {
-                      bestData.coverageA2 = {
-                        event: "Couverture réelle pour " + bestData.bookmaker1,
-                        odds: marketA.outcomes[3].price,
-                        team: marketA.outcomes[3].name,
-                        variation: "Option 2"
-                      };
-                    } else {
-                      bestData.coverageA2 = {
-                        event: "Couverture pour " + bestData.bookmaker1,
-                        odds: bestData.odds1 * 1.02,
-                        team: bestData.team1,
-                        variation: "+2%"
-                      };
-                    }
-                    // Pour Bookmaker B :
-                    if(marketB.outcomes.length >= 3) {
-                      bestData.coverageB1 = {
-                        event: "Couverture réelle pour " + bestData.bookmaker2,
-                        odds: marketB.outcomes[2].price,
-                        team: marketB.outcomes[2].name,
-                        variation: "Option 1"
-                      };
-                    } else {
-                      bestData.coverageB1 = {
-                        event: "Couverture pour " + bestData.bookmaker2,
-                        odds: bestData.odds2 * 0.98,
-                        team: bestData.team2,
-                        variation: "-2%"
-                      };
-                    }
-                    if(marketB.outcomes.length >= 4) {
-                      bestData.coverageB2 = {
-                        event: "Couverture réelle pour " + bestData.bookmaker2,
-                        odds: marketB.outcomes[3].price,
-                        team: marketB.outcomes[3].name,
-                        variation: "Option 2"
-                      };
-                    } else {
-                      bestData.coverageB2 = {
-                        event: "Couverture pour " + bestData.bookmaker2,
-                        odds: bestData.odds2 * 1.02,
-                        team: bestData.team2,
-                        variation: "+2%"
-                      };
-                    }
-
                     const betKey = `${marketA.key}-${bestData.odds1}-${bestData.odds2}`;
                     if (!arbitrageMap.has(betKey) || parseFloat(arbitrageMap.get(betKey).gain) < bestGain) {
                       arbitrageMap.set(betKey, {
@@ -358,11 +315,7 @@
                         gain: bestGain,
                         team1: bestData.team1,
                         team2: bestData.team2,
-                        links: bestData.links,
-                        coverageA1: bestData.coverageA1,
-                        coverageA2: bestData.coverageA2,
-                        coverageB1: bestData.coverageB1,
-                        coverageB2: bestData.coverageB2
+                        links: bestData.links
                       });
                     }
                   }
@@ -371,11 +324,10 @@
             });
           });
       });
-
       return Array.from(arbitrageMap.values());
     }
 
-    // Rendu du tableau des opportunités d'arbitrage et affichage interactif des détails
+    // Rendu du tableau des opportunités d'arbitrage avec intégration des vraies couvertures
     function renderOddsTable(data) {
       const tableBody = document.querySelector('#oddsTable tbody');
       tableBody.innerHTML = '';
@@ -386,6 +338,9 @@
 
       const allArbitragePairs = [];
 
+      // Stocke tous les événements (globalEvents est déjà assigné dans fetchAllOdds)
+      const allEvents = globalEvents;
+
       data.forEach(event => {
         const arbitragePairs = calculateArbitrage(event.bookmakers);
         totalEvents += 1;
@@ -393,6 +348,7 @@
         totalBookmakers += event.bookmakers.length;
 
         arbitragePairs.forEach(pair => {
+          // Ajoute l'événement actuel au pair pour comparaison
           allArbitragePairs.push({
             sport: event.sport_key,
             event: `${event.home_team || 'N/A'} vs ${event.away_team || 'N/A'}`,
@@ -401,6 +357,32 @@
         });
       });
 
+      // Pour chaque paire d'arbitrage, ajouter de vrais paris de couverture sur d'autres événements
+      allArbitragePairs.forEach(pair => {
+        // Pour Bookmaker1
+        let hedgeA = getHedgeBetsForBookmaker(pair.bookmaker1, pair.event, allEvents);
+        if (hedgeA.length < 2) {
+          // Si insuffisant, simuler avec fallback
+          hedgeA = [
+            { event: "Fallback " + pair.bookmaker1, odds: pair.odds1 * 0.98, team: pair.team1, variation: "-2%" },
+            { event: "Fallback " + pair.bookmaker1, odds: pair.odds1 * 1.02, team: pair.team1, variation: "+2%" }
+          ];
+        }
+        // Pour Bookmaker2
+        let hedgeB = getHedgeBetsForBookmaker(pair.bookmaker2, pair.event, allEvents);
+        if (hedgeB.length < 2) {
+          hedgeB = [
+            { event: "Fallback " + pair.bookmaker2, odds: pair.odds2 * 0.98, team: pair.team2, variation: "-2%" },
+            { event: "Fallback " + pair.bookmaker2, odds: pair.odds2 * 1.02, team: pair.team2, variation: "+2%" }
+          ];
+        }
+        pair.coverageA1 = hedgeA[0];
+        pair.coverageA2 = hedgeA[1];
+        pair.coverageB1 = hedgeB[0];
+        pair.coverageB2 = hedgeB[1];
+      });
+
+      // Tri par gain décroissant
       allArbitragePairs.sort((a, b) => parseFloat(b.gain) - parseFloat(a.gain));
 
       allArbitragePairs.forEach(pair => {
@@ -422,51 +404,51 @@
         `;
         tableBody.appendChild(row);
 
-        // Ligne de détails cachée pour afficher les 4 paris lambda réels
-        if (pair.coverageA1 && pair.coverageB1) {
-          const detailRow = document.createElement('tr');
-          detailRow.className = "detail-row";
-          detailRow.style.display = "none";
-          detailRow.innerHTML = `
-            <td colspan="5" style="font-size: 0.8rem;">
-              <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
-                <div style="margin: 5px;">
-                  <strong>${pair.bookmaker1} - Couverture 1 :</strong><br>
-                  Événement : ${pair.coverageA1.event}<br>
-                  Cote : ${pair.coverageA1.odds.toFixed(2)}<br>
-                  Équipe : ${pair.coverageA1.team}<br>
-                  Variation : ${pair.coverageA1.variation}
-                </div>
-                <div style="margin: 5px;">
-                  <strong>${pair.bookmaker1} - Couverture 2 :</strong><br>
-                  Événement : ${pair.coverageA2.event}<br>
-                  Cote : ${pair.coverageA2.odds.toFixed(2)}<br>
-                  Équipe : ${pair.coverageA2.team}<br>
-                  Variation : ${pair.coverageA2.variation}
-                </div>
-                <div style="margin: 5px;">
-                  <strong>${pair.bookmaker2} - Couverture 1 :</strong><br>
-                  Événement : ${pair.coverageB1.event}<br>
-                  Cote : ${pair.coverageB1.odds.toFixed(2)}<br>
-                  Équipe : ${pair.coverageB1.team}<br>
-                  Variation : ${pair.coverageB1.variation}
-                </div>
-                <div style="margin: 5px;">
-                  <strong>${pair.bookmaker2} - Couverture 2 :</strong><br>
-                  Événement : ${pair.coverageB2.event}<br>
-                  Cote : ${pair.coverageB2.odds.toFixed(2)}<br>
-                  Équipe : ${pair.coverageB2.team}<br>
-                  Variation : ${pair.coverageB2.variation}
-                </div>
+        // Ligne de détails pour afficher les 4 paris de couverture réels
+        const detailRow = document.createElement('tr');
+        detailRow.className = "detail-row";
+        // On ne masque plus automatiquement après 3 secondes ; elle reste affichée jusqu'au reclique
+        detailRow.style.display = "none";
+        detailRow.innerHTML = `
+          <td colspan="5" style="font-size: 0.8rem;">
+            <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
+              <div style="margin: 5px;">
+                <strong>${pair.bookmaker1} - Couverture 1 :</strong><br>
+                Événement : ${pair.coverageA1.event}<br>
+                Cote : ${pair.coverageA1.odds.toFixed(2)}<br>
+                Équipe : ${pair.coverageA1.team}<br>
+                Variation : ${pair.coverageA1.variation}
               </div>
-            </td>
-          `;
-          tableBody.appendChild(detailRow);
+              <div style="margin: 5px;">
+                <strong>${pair.bookmaker1} - Couverture 2 :</strong><br>
+                Événement : ${pair.coverageA2.event}<br>
+                Cote : ${pair.coverageA2.odds.toFixed(2)}<br>
+                Équipe : ${pair.coverageA2.team}<br>
+                Variation : ${pair.coverageA2.variation}
+              </div>
+              <div style="margin: 5px;">
+                <strong>${pair.bookmaker2} - Couverture 1 :</strong><br>
+                Événement : ${pair.coverageB1.event}<br>
+                Cote : ${pair.coverageB1.odds.toFixed(2)}<br>
+                Équipe : ${pair.coverageB1.team}<br>
+                Variation : ${pair.coverageB1.variation}
+              </div>
+              <div style="margin: 5px;">
+                <strong>${pair.bookmaker2} - Couverture 2 :</strong><br>
+                Événement : ${pair.coverageB2.event}<br>
+                Cote : ${pair.coverageB2.odds.toFixed(2)}<br>
+                Équipe : ${pair.coverageB2.team}<br>
+                Variation : ${pair.coverageB2.variation}
+              </div>
+            </div>
+          </td>
+        `;
+        tableBody.appendChild(detailRow);
 
-          row.addEventListener('click', () => {
-            detailRow.style.display = detailRow.style.display === 'none' ? 'table-row' : 'none';
-          });
-        }
+        // Ajout d'un événement de clic pour basculer l'affichage des détails (reste affichée jusqu'à reclique)
+        row.addEventListener('click', () => {
+          detailRow.style.display = detailRow.style.display === 'none' ? 'table-row' : 'none';
+        });
       });
 
       document.getElementById('totalBookmakers').textContent = totalBookmakers;
@@ -476,7 +458,7 @@
       renderBookmakersTab(allArbitragePairs);
     }
 
-    // Fonction qui agrège les données pour créer le classement des 10 bookmakers les plus rentables
+    // Fonction pour créer le classement des 10 bookmakers les plus rentables
     function renderBookmakersTab(allArbitragePairs) {
       const bookmakersAggregation = {};
       allArbitragePairs.forEach(bet => {
@@ -547,6 +529,7 @@
       document.getElementById('bookmakersTab').innerHTML = html;
     }
 
+    // Fonction de gestion des onglets
     function showTab(tabName) {
       const arbitrageTab = document.getElementById('arbitrageTab');
       const bookmakersTab = document.getElementById('bookmakersTab');
@@ -559,6 +542,28 @@
       }
     }
 
+    // Fonction pour récupérer de vrais paris de couverture pour un bookmaker différent de l'événement d'arbitrage
+    function getHedgeBetsForBookmaker(bookmaker, currentEvent, allEvents) {
+      const bets = [];
+      allEvents.forEach(event => {
+        const eventName = `${event.home_team || 'N/A'} vs ${event.away_team || 'N/A'}`;
+        if (eventName !== currentEvent && event.bookmakers) {
+          // Vérifier si le bookmaker apparaît dans cet événement
+          const bm = event.bookmakers.find(b => b.title === bookmaker);
+          if (bm && bm.markets && bm.markets.length > 0 && bm.markets[0].outcomes && bm.markets[0].outcomes.length > 0) {
+            bets.push({
+              event: eventName,
+              odds: bm.markets[0].outcomes[0].price,
+              team: bm.markets[0].outcomes[0].name,
+              variation: "Réel"
+            });
+          }
+        }
+      });
+      return bets.slice(0, 2);
+    }
+
+    // Actualisation des données toutes les 5 secondes et première charge
     setInterval(fetchAllOdds, 5000);
     fetchAllOdds();
   </script>
