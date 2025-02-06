@@ -51,7 +51,7 @@
       color: #333;
       border: 1px solid #ddd;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       font-weight: bold;
       text-align: center;
       min-width: 150px;
@@ -61,7 +61,7 @@
       margin: 20px auto;
       padding: 10px;
       background-color: white;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       border-radius: 8px;
     }
     table {
@@ -190,7 +190,7 @@
         const response = await fetch('/all-odds');
         if (!response.ok) throw new Error(`Erreur HTTP : ${response.status}`);
         const data = await response.json();
-        globalEvents = data; // Stocke pour recherche dans removeDuplicates
+        globalEvents = data; // Stocker pour usage dans removeDuplicates
         renderOddsTable(data);
       } catch (error) {
         console.error("Erreur lors de la récupération des cotes :", error);
@@ -199,21 +199,25 @@
       }
     }
 
-    // Fonction pour retirer les doublons sur l'ensemble du tableau.
-    // Pour chaque pari, on construit une clé unique basée sur l'événement et la combinaison (ordre-insensible) des bookmakers, équipes et cotes (arrondies à 2 décimales).
+    // Nouvelle fonction pour supprimer les doublons basés sur la cote, le bookmaker et l'équipe
     function removeDuplicates(arbitragePairs) {
-      const bestByKey = {};
+      const bestForOutcome = {};
       arbitragePairs.forEach(pair => {
-        const eventKey = pair.event;
-        const key1 = `${pair.bookmaker1}-${pair.team1}-${parseFloat(pair.odds1).toFixed(2)}`;
-        const key2 = `${pair.bookmaker2}-${pair.team2}-${parseFloat(pair.odds2).toFixed(2)}`;
-        const sortedKeys = [key1, key2].sort().join("_");
-        const key = `${eventKey}_${sortedKeys}`;
-        if (!bestByKey[key] || pair.gain > bestByKey[key].gain) {
-          bestByKey[key] = pair;
+        // Clé pour le côté 1
+        const keyA = `${pair.event}-${pair.bookmaker1}-${pair.team1}-${parseFloat(pair.odds1).toFixed(2)}`;
+        // Clé pour le côté 2
+        const keyB = `${pair.event}-${pair.bookmaker2}-${pair.team2}-${parseFloat(pair.odds2).toFixed(2)}`;
+        // Pour chaque côté, on met à jour si le gain est supérieur
+        if (!bestForOutcome[keyA] || pair.gain > bestForOutcome[keyA].gain) {
+          bestForOutcome[keyA] = pair;
+        }
+        if (!bestForOutcome[keyB] || pair.gain > bestForOutcome[keyB].gain) {
+          bestForOutcome[keyB] = pair;
         }
       });
-      return Object.values(bestByKey);
+      // Retourner l'union des paires stockées (uniques)
+      const uniquePairs = new Set(Object.values(bestForOutcome));
+      return Array.from(uniquePairs);
     }
 
     // Fonction de calcul d'arbitrage (inchangée)
@@ -313,7 +317,7 @@
       return Array.from(arbitrageMap.values());
     }
 
-    // Fonction de rendu du tableau des opportunités d'arbitrage
+    // Fonction de rendu du tableau des opportunités d'arbitrage avec suppression des doublons
     function renderOddsTable(data) {
       const tableBody = document.querySelector('#oddsTable tbody');
       tableBody.innerHTML = '';
@@ -337,7 +341,7 @@
         });
       });
 
-      // Retirer les doublons sur tout le tableau en ne conservant que la meilleure occurrence
+      // Supprimer les doublons sur tout le tableau
       const filteredPairs = removeDuplicates(allArbitragePairs);
       // Tri par gain décroissant
       filteredPairs.sort((a, b) => parseFloat(b.gain) - parseFloat(a.gain));
@@ -366,22 +370,6 @@
       document.getElementById('totalEvents').textContent = totalEvents;
 
       renderBookmakersTab(filteredPairs);
-    }
-
-    // Fonction pour supprimer les doublons sur l'ensemble du tableau
-    function removeDuplicates(arbitragePairs) {
-      const bestByKey = {};
-      arbitragePairs.forEach(pair => {
-        const eventKey = pair.event;
-        const key1 = `${pair.bookmaker1}-${pair.team1}-${parseFloat(pair.odds1).toFixed(2)}`;
-        const key2 = `${pair.bookmaker2}-${pair.team2}-${parseFloat(pair.odds2).toFixed(2)}`;
-        const sortedKeys = [key1, key2].sort().join("_");
-        const key = `${eventKey}_${sortedKeys}`;
-        if (!bestByKey[key] || pair.gain > bestByKey[key].gain) {
-          bestByKey[key] = pair;
-        }
-      });
-      return Object.values(bestByKey);
     }
 
     // Fonction d'agrégation pour le classement des 10 bookmakers les plus rentables
