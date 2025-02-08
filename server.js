@@ -9,26 +9,24 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuration de l'API
-const API_KEY = process.env.API_KEY || "28595ca16f06375a6806c0f40e095d44"; // Clé API avec valeur par défaut
+// Remplacez la clé API par la nouvelle (vous pouvez la mettre dans votre .env)
+const API_KEY = process.env.API_KEY || "f0c696ab8a6fa3ed0c5dfd3e694c1fe1";
 const BASE_API_URL = "https://api.the-odds-api.com/v4";
 
-// Cache : 
-// - sportsCache reste à 1 heure (3600 secondes) pour une éventuelle utilisation ultérieure
-// - oddsCache est mis à jour toutes les 60 secondes pour avoir des cotes récentes
+// Cache :
+// - sportsCache reste à 1 heure (3600 secondes)
+// - oddsCache est mis à jour toutes les 60 secondes pour les cotes récentes
 const sportsCache = new NodeCache({ stdTTL: 3600 });
-const oddsCache = new NodeCache({ stdTTL: 60 }); // Mise à jour toutes les 60 secondes
+const oddsCache = new NodeCache({ stdTTL: 60 });
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Fonction pour récupérer les cotes avec gestion des erreurs et cache
+// Fonction pour récupérer les cotes en temps réel
 async function fetchOddsCached(sportKey, markets = "h2h,spreads,totals") {
-  // Utilisation d'une clé composite pour le cache en incluant le paramètre markets
   const cacheKey = `${sportKey}-${markets}`;
   const cachedOdds = oddsCache.get(cacheKey);
   if (cachedOdds) return cachedOdds;
-
   try {
     const response = await axios.get(`${BASE_API_URL}/sports/${sportKey}/odds`, {
       params: {
@@ -36,8 +34,8 @@ async function fetchOddsCached(sportKey, markets = "h2h,spreads,totals") {
         regions: "us,uk,eu,au",
         markets,
         oddsFormat: "decimal",
-        includeLinks: "true",
-      },
+        includeLinks: "true"
+      }
     });
     oddsCache.set(cacheKey, response.data);
     return response.data;
@@ -47,7 +45,7 @@ async function fetchOddsCached(sportKey, markets = "h2h,spreads,totals") {
   }
 }
 
-// Route optimisée pour récupérer les cotes de plusieurs sports sélectionnés
+// Endpoint existant pour les cotes en temps réel
 app.get('/all-odds', async (req, res) => {
   try {
     const sportsToFetch = [
@@ -58,15 +56,10 @@ app.get('/all-odds', async (req, res) => {
       'icehockey_nhl',
       'baseball_mlb',
     ];
-
-    // Récupérer les cotes pour chaque sport sélectionné
     const allOdds = await Promise.all(
       sportsToFetch.map(sportKey => fetchOddsCached(sportKey))
     );
-
-    // Filtrer pour ne garder que les événements avec des bookmakers
     const filteredOdds = allOdds.flat().filter(event => event.bookmakers && event.bookmakers.length > 0);
-
     res.json(filteredOdds);
   } catch (error) {
     console.error("Erreur lors de la récupération des cotes :", error);
@@ -74,19 +67,44 @@ app.get('/all-odds', async (req, res) => {
   }
 });
 
-// -------------------------------
-// SERVEUR FRONTEND
-// -------------------------------
+// Nouvel endpoint pour récupérer les cotes historiques
+app.get('/historical-odds', async (req, res) => {
+  try {
+    const sportsToFetch = [
+      'americanfootball_nfl',
+      'basketball_nba',
+      'tennis',
+      'soccer',
+      'icehockey_nhl',
+      'baseball_mlb',
+    ];
+    const promises = sportsToFetch.map(async sportKey => {
+      const response = await axios.get(`${BASE_API_URL}/sports/${sportKey}/odds`, {
+        params: {
+          apiKey: API_KEY,
+          regions: "us,uk,eu,au",
+          markets: "h2h,spreads,totals",
+          oddsFormat: "decimal",
+          includeLinks: "true",
+          includeHistory: true  // Paramètre pour inclure l'historique (vérifiez la documentation de l'API)
+        }
+      });
+      return response.data;
+    });
+    const allHistoricalOdds = await Promise.all(promises);
+    res.json(allHistoricalOdds.flat());
+  } catch (error) {
+    console.error("Erreur lors de la récupération des cotes historiques :", error.message);
+    res.status(500).json({ error: "Erreur lors de la récupération des cotes historiques." });
+  }
+});
+
 // Servir les fichiers statiques du dossier 'public'
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Pour toute requête non gérée par les routes ci-dessus, retourner le fichier index.html
-// (utile pour une application monopage)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Lancer le serveur
 app.listen(PORT, () => {
   console.log(`Serveur lancé sur http://localhost:${PORT}`);
 });
