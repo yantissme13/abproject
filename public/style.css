@@ -1,57 +1,81 @@
+/* 🌟 Styles généraux */
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Arial', sans-serif;
     margin: 0;
     padding: 0;
     background-color: #f4f4f9;
     text-align: center;
 }
 
+/* 🌟 En-tête */
 header {
     background: #1e90ff;
     color: white;
-    padding: 15px;
-    text-align: center;
+    padding: 20px;
+    font-size: 1.8rem;
+    font-weight: bold;
 }
 
+/* 🌟 Navigation */
 nav {
-    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 15px 0;
 }
 
 button {
     background-color: #1e90ff;
     border: none;
     color: white;
-    padding: 10px 20px;
-    margin: 5px;
-    cursor: pointer;
-    border-radius: 5px;
+    padding: 12px 25px;
     font-size: 16px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.3s;
 }
 
 button:hover {
     background-color: #0056b3;
 }
 
-.tab {
-    display: none;
-    padding: 20px;
+button.active {
+    background-color: #ff8c00;
 }
 
-.tab.active {
+/* 🌟 Sections */
+main {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 🌟 Onglets */
+section {
+    display: none;
+}
+
+section.active {
     display: block;
 }
 
+/* 🌟 Tableau */
 table {
-    width: 80%;
-    margin: 20px auto;
+    width: 100%;
     border-collapse: collapse;
-    background: white;
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    margin-top: 15px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
 }
 
-table, th, td {
+th, td {
+    padding: 12px;
     border: 1px solid #ddd;
-    padding: 10px;
+    text-align: center;
 }
 
 th {
@@ -61,4 +85,25 @@ th {
 
 tr:nth-child(even) {
     background: #f9f9f9;
+}
+
+tr:hover {
+    background-color: #d4eaff;
+}
+
+/* 🌟 Responsive Design */
+@media (max-width: 768px) {
+    main {
+        width: 95%;
+        padding: 15px;
+    }
+    
+    table {
+        font-size: 14px;
+    }
+    
+    button {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
 }
