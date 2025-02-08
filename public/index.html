@@ -3,63 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Opportunités de Paris d'Arbitrage</title>
+    <title>Opportunités de Paris</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header>
         <h1>Opportunités de Paris d'Arbitrage</h1>
         <nav>
-            <button onclick="showTab('liveOdds')">Cotes en Direct</button>
-            <button onclick="showTab('historicalOdds')">Cotes Historiques</button>
-            <button onclick="showTab('topBookmakers')">Bookmakers Rentables</button>
+            <button onclick="showTab('liveOdds')">Live</button>
+            <button onclick="showTab('historicalOdds')">Historique</button>
         </nav>
     </header>
     
-    <section id="liveOdds" class="tab-content">
-        <h2>Cotes en Direct</h2>
-        <table id="oddsTable"></table>
-    </section>
-    
-    <section id="historicalOdds" class="tab-content" style="display: none;">
-        <h2>Cotes Historiques</h2>
-        <table id="historicalTable"></table>
-    </section>
-    
-    <section id="topBookmakers" class="tab-content" style="display: none;">
-        <h2>Bookmakers Rentables</h2>
-        <table id="bookmakersTable"></table>
-    </section>
-    
-    <script>
-        async function fetchOdds(endpoint, tableId) {
-            try {
-                const response = await fetch(endpoint);
-                const data = await response.json();
-                
-                let table = document.getElementById(tableId);
-                table.innerHTML = '<tr><th>Sport</th><th>Événement</th><th>Bookmaker</th><th>Cotes</th></tr>';
-                
-                data.forEach(odd => {
-                    let row = table.insertRow();
-                    row.insertCell(0).innerText = odd.sport;
-                    row.insertCell(1).innerText = odd.event;
-                    row.insertCell(2).innerText = odd.bookmaker;
-                    row.insertCell(3).innerText = JSON.stringify(odd.odds);
-                });
-            } catch (error) {
-                console.error('Erreur de chargement des cotes', error);
-            }
-        }
+    <main>
+        <section id="liveOdds" class="tab active">
+            <h2>Live Odds</h2>
+            <table id="oddsTable">
+                <thead>
+                    <tr>
+                        <th>Sport</th>
+                        <th>Événement</th>
+                        <th>Bookmakers</th>
+                        <th>Montants</th>
+                        <th>Gain</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Données ajoutées dynamiquement -->
+                </tbody>
+            </table>
+        </section>
 
-        function showTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.style.display = 'none';
-            });
-            document.getElementById(tabId).style.display = 'block';
-            
-            if (tabId === 'historicalOdds') fetchOdds('/historical-odds', 'historicalTable');
-        }
-    </script>
+        <section id="historicalOdds" class="tab">
+            <h2>Historique des Cotes</h2>
+            <table id="historicalTable">
+                <thead>
+                    <tr>
+                        <th>Sport</th>
+                        <th>Événement</th>
+                        <th>Bookmaker</th>
+                        <th>Cotes</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Données ajoutées dynamiquement -->
+                </tbody>
+            </table>
+        </section>
+    </main>
+    
+    <script src="script.js"></script>
 </body>
 </html>

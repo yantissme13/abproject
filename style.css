@@ -1,88 +1,64 @@
-/* Styles généraux */
 body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
     background-color: #f4f4f9;
+    text-align: center;
 }
 
 header {
-    background-color: #1e90ff;
+    background: #1e90ff;
     color: white;
+    padding: 15px;
     text-align: center;
-    padding: 20px;
-    font-size: 1.5rem;
 }
 
 nav {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin: 10px 0;
+    margin-top: 10px;
 }
 
-nav button {
-    padding: 10px 15px;
-    border: none;
+button {
     background-color: #1e90ff;
+    border: none;
     color: white;
+    padding: 10px 20px;
+    margin: 5px;
     cursor: pointer;
     border-radius: 5px;
-    font-size: 1rem;
+    font-size: 16px;
 }
 
-nav button:hover {
+button:hover {
     background-color: #0056b3;
 }
 
-.tab-content {
-    max-width: 90%;
-    margin: 20px auto;
-    padding: 20px;
-    background-color: white;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
+.tab {
     display: none;
+    padding: 20px;
 }
 
-h2 {
-    text-align: center;
+.tab.active {
+    display: block;
 }
 
-/* Style des tableaux */
 table {
-    width: 100%;
+    width: 80%;
+    margin: 20px auto;
     border-collapse: collapse;
-    margin: 20px 0;
+    background: white;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-table th, table td {
+table, th, td {
     border: 1px solid #ddd;
-    padding: 8px;
-    text-align: center;
+    padding: 10px;
 }
 
-table th {
-    background-color: #1e90ff;
+th {
+    background: #1e90ff;
     color: white;
 }
 
-table tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-
-table tr:hover {
-    background-color: #f1f1f1;
-}
-
-/* Media queries pour mobile */
-@media (max-width: 600px) {
-    nav {
-        flex-direction: column;
-        align-items: center;
-    }
-    
-    nav button {
-        width: 80%;
-    }
+tr:nth-child(even) {
+    background: #f9f9f9;
 }
