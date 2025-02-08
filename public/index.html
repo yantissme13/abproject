@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Opportunités de Paris d'Arbitrage</title>
-  <link rel="stylesheet" href="styles.css"> <!-- ✅ Correction du chemin absolu -->
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <header>
@@ -12,12 +12,12 @@
   </header>
 
   <nav>
-    <button id="live-tab" class="tab-button active" onclick="showTab('live')">Live</button>
-    <button id="historical-tab" class="tab-button" onclick="showTab('historical')">Historique</button>
+    <button id="live-tab" class="active" onclick="showTab('live')">Live</button>
+    <button id="historical-tab" onclick="showTab('historical')">Historique</button>
   </nav>
 
   <main>
-    <section id="live-odds" class="tab-content active">
+    <section id="live-odds" class="active">
       <h2>Live Odds</h2>
       <table>
         <thead>
@@ -29,12 +29,12 @@
           </tr>
         </thead>
         <tbody>
-          <tr><td colspan="4">Chargement en cours...</td></tr>
+          <tr><td colspan="4">Chargement...</td></tr>
         </tbody>
       </table>
     </section>
 
-    <section id="historical-odds" class="tab-content">
+    <section id="historical-odds">
       <h2>Historique des Cotes</h2>
       <table>
         <thead>
@@ -47,17 +47,12 @@
           </tr>
         </thead>
         <tbody>
-          <tr><td colspan="5">Chargement en cours...</td></tr>
+          <tr><td colspan="5">Chargement...</td></tr>
         </tbody>
       </table>
     </section>
   </main>
 
-  <!-- Ajout d'un message d'erreur si JS ne se charge pas -->
-  <noscript>
-    <p style="color: red; text-align: center;">JavaScript est désactivé. Veuillez l'activer pour utiliser ce site.</p>
-  </noscript>
-
-  <script src="/script.js"></script> <!-- ✅ Correction du chemin absolu -->
+  <script src="/script.js"></script>
 </body>
 </html>
