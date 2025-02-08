@@ -1,407 +1,65 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Opportunités de Paris d'Arbitrage</title>
-  <!-- Lien vers le fichier CSS externe -->
-  <link rel="stylesheet" href="css/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opportunités de Paris d'Arbitrage</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header>
-    Opportunités de Paris d'Arbitrage
-  </header>
-  <!-- Navigation des onglets -->
-  <div class="tabs">
-    <button id="tabArbitrage" onclick="showTab('arbitrage')">Opportunités d'Arbitrage</button>
-    <button id="tabHistorical" onclick="showTab('historical')">Historique des Cotes</button>
-    <button id="tabLongTerm" onclick="showTab('longterm')">Bookmakers Rentables Long Terme</button>
-  </div>
-  
-  <!-- Conteneur pour l'onglet Opportunités d'Arbitrage (live data) -->
-  <div class="container" id="arbitrageTab">
-    <div class="totals">
-      <p>Total de Bookmakers : <span id="totalBookmakers">0</span></p>
-      <p>Total d'Opportunités : <span id="totalOpportunities">0</span></p>
-      <p>Total d'Événements : <span id="totalEvents">0</span></p>
-    </div>
-    <table id="oddsTable">
-      <thead>
-        <tr>
-          <th>Sport</th>
-          <th>Événement</th>
-          <th>Bookmakers et cotes</th>
-          <th>Montants à Parier</th>
-          <th>Gain total</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Les données live seront ajoutées ici dynamiquement -->
-      </tbody>
-    </table>
-  </div>
-  
-  <!-- Conteneur pour l'onglet Historique des Cotes -->
-  <div class="container" id="historicalTab" style="display: none;">
-    <h2>Historique des Cotes</h2>
-    <table id="historicalTable">
-      <thead>
-        <tr>
-          <th>Sport</th>
-          <th>Événement</th>
-          <th>Bookmaker</th>
-          <th>Cote Historique</th>
-          <th>Date</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Les données historiques seront ajoutées ici dynamiquement -->
-      </tbody>
-    </table>
-  </div>
-  
-  <!-- Conteneur pour l'onglet Bookmakers Rentables Long Terme -->
-  <div class="container" id="longtermTab" style="display: none;">
-    <h2>Bookmakers Rentables sur le Long Terme</h2>
-    <table id="longtermTable">
-      <thead>
-        <tr>
-          <th>Rang</th>
-          <th>Bookmaker</th>
-          <th>Gain Total Historique</th>
-          <th>Nombre d'Événements</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Les données agrégées historiques seront affichées ici -->
-      </tbody>
-    </table>
-  </div>
-  
-  <script>
-    // Fonctions et variables globales pour les données en temps réel
-    let globalEvents = [];
+    <header>
+        <h1>Opportunités de Paris d'Arbitrage</h1>
+        <nav>
+            <button onclick="showTab('liveOdds')">Cotes en Direct</button>
+            <button onclick="showTab('historicalOdds')">Cotes Historiques</button>
+            <button onclick="showTab('topBookmakers')">Bookmakers Rentables</button>
+        </nav>
+    </header>
     
-    async function fetchAllOdds() {
-      try {
-        const response = await fetch('/all-odds');
-        if (!response.ok) throw new Error(`Erreur HTTP : ${response.status}`);
-        const data = await response.json();
-        globalEvents = data;
-        renderOddsTable(data);
-      } catch (error) {
-        console.error("Erreur lors de la récupération des cotes live :", error);
-        document.querySelector('#oddsTable tbody').innerHTML =
-          '<tr><td colspan="5">Impossible de charger les données live. Réessayez plus tard.</td></tr>';
-      }
-    }
+    <section id="liveOdds" class="tab-content">
+        <h2>Cotes en Direct</h2>
+        <table id="oddsTable"></table>
+    </section>
     
-    // Nouvelle fonction pour récupérer les cotes historiques
-    async function fetchHistoricalOdds() {
-      try {
-        const response = await fetch('/historical-odds');
-        if (!response.ok) throw new Error(`Erreur HTTP : ${response.status}`);
-        const data = await response.json();
-        renderHistoricalTable(data);
-        renderLongTermTable(data);
-      } catch (error) {
-        console.error("Erreur lors de la récupération des cotes historiques :", error);
-        document.querySelector('#historicalTable tbody').innerHTML =
-          '<tr><td colspan="5">Impossible de charger les données historiques. Réessayez plus tard.</td></tr>';
-      }
-    }
+    <section id="historicalOdds" class="tab-content" style="display: none;">
+        <h2>Cotes Historiques</h2>
+        <table id="historicalTable"></table>
+    </section>
     
-    // La fonction de filtrage pour ne proposer qu'une seule occurrence par même pari (inchangée de vos précédents besoins)
-    function filterUniqueBets(arbitragePairs) {
-      arbitragePairs.sort((a, b) => parseFloat(b.gain) - parseFloat(a.gain));
-      const seen = new Set();
-      const uniquePairs = [];
-      arbitragePairs.forEach(pair => {
-        const keyA = `${pair.event}-${pair.bookmaker1}-${pair.team1}-${parseFloat(pair.odds1).toFixed(2)}`;
-        const keyB = `${pair.event}-${pair.bookmaker2}-${pair.team2}-${parseFloat(pair.odds2).toFixed(2)}`;
-        if (!seen.has(keyA) && !seen.has(keyB)) {
-          uniquePairs.push(pair);
-          seen.add(keyA);
-          seen.add(keyB);
+    <section id="topBookmakers" class="tab-content" style="display: none;">
+        <h2>Bookmakers Rentables</h2>
+        <table id="bookmakersTable"></table>
+    </section>
+    
+    <script>
+        async function fetchOdds(endpoint, tableId) {
+            try {
+                const response = await fetch(endpoint);
+                const data = await response.json();
+                
+                let table = document.getElementById(tableId);
+                table.innerHTML = '<tr><th>Sport</th><th>Événement</th><th>Bookmaker</th><th>Cotes</th></tr>';
+                
+                data.forEach(odd => {
+                    let row = table.insertRow();
+                    row.insertCell(0).innerText = odd.sport;
+                    row.insertCell(1).innerText = odd.event;
+                    row.insertCell(2).innerText = odd.bookmaker;
+                    row.insertCell(3).innerText = JSON.stringify(odd.odds);
+                });
+            } catch (error) {
+                console.error('Erreur de chargement des cotes', error);
+            }
         }
-      });
-      return uniquePairs;
-    }
-    
-    // Fonction de calcul d'arbitrage (inchangée)
-    function calculateArbitrage(bookmakers) {
-      const arbitrageMap = new Map();
-      const totalMise = 100;
-      bookmakers.forEach((bookmakerA, index) => {
-        bookmakers.slice(index + 1)
-          .filter(bookmakerB => bookmakerB.title !== bookmakerA.title)
-          .forEach(bookmakerB => {
-            bookmakerA.markets.forEach(marketA => {
-              bookmakerB.markets.forEach(marketB => {
-                if (
-                  marketA.key === marketB.key &&
-                  Array.isArray(marketA.outcomes) &&
-                  Array.isArray(marketB.outcomes) &&
-                  marketA.outcomes.length >= 2 &&
-                  marketB.outcomes.length >= 2
-                ) {
-                  const outcomeA1 = marketA.outcomes[0];
-                  const outcomeB2 = marketB.outcomes[1];
-                  let gain1 = 0, stake1_comb1 = 0, stake2_comb1 = 0;
-                  if (
-                    outcomeA1.price > 0 &&
-                    outcomeB2.price > 0 &&
-                    (1 / outcomeA1.price + 1 / outcomeB2.price) < 1
-                  ) {
-                    stake1_comb1 = totalMise / (1 + outcomeB2.price / outcomeA1.price);
-                    stake2_comb1 = totalMise - stake1_comb1;
-                    gain1 = Math.min(stake1_comb1 * outcomeA1.price, stake2_comb1 * outcomeB2.price) - totalMise;
-                  }
-                  const outcomeB1 = marketB.outcomes[0];
-                  const outcomeA2 = marketA.outcomes[1];
-                  let gain2 = 0, stake1_comb2 = 0, stake2_comb2 = 0;
-                  if (
-                    outcomeB1.price > 0 &&
-                    outcomeA2.price > 0 &&
-                    (1 / outcomeB1.price + 1 / outcomeA2.price) < 1
-                  ) {
-                    stake1_comb2 = totalMise / (1 + outcomeA2.price / outcomeB1.price);
-                    stake2_comb2 = totalMise - stake1_comb2;
-                    gain2 = Math.min(stake1_comb2 * outcomeB1.price, stake2_comb2 * outcomeA2.price) - totalMise;
-                  }
-                  let bestGain = 0;
-                  let bestData = null;
-                  if (gain1 > bestGain) {
-                    bestGain = gain1;
-                    bestData = {
-                      bookmaker1: bookmakerA.title,
-                      bookmaker2: bookmakerB.title,
-                      odds1: outcomeA1.price,
-                      odds2: outcomeB2.price,
-                      stake1: stake1_comb1,
-                      stake2: stake2_comb1,
-                      team1: outcomeA1.name,
-                      team2: outcomeB2.name,
-                      links: [bookmakerA.url, bookmakerB.url]
-                    };
-                  }
-                  if (gain2 > bestGain) {
-                    bestGain = gain2;
-                    bestData = {
-                      bookmaker1: bookmakerB.title,
-                      bookmaker2: bookmakerA.title,
-                      odds1: outcomeB1.price,
-                      odds2: outcomeA2.price,
-                      stake1: stake1_comb2,
-                      stake2: stake2_comb2,
-                      team1: outcomeB1.name,
-                      team2: outcomeA2.name,
-                      links: [bookmakerB.url, bookmakerA.url]
-                    };
-                  }
-                  if (bestGain > 0 && bestData !== null) {
-                    const betKey = `${marketA.key}-${bestData.odds1}-${bestData.odds2}`;
-                    if (!arbitrageMap.has(betKey) || parseFloat(arbitrageMap.get(betKey).gain) < bestGain) {
-                      arbitrageMap.set(betKey, {
-                        key: betKey,
-                        bookmaker1: bestData.bookmaker1,
-                        bookmaker2: bestData.bookmaker2,
-                        odds1: bestData.odds1,
-                        odds2: bestData.odds2,
-                        stake1: bestData.stake1,
-                        stake2: bestData.stake2,
-                        gain: bestGain,
-                        team1: bestData.team1,
-                        team2: bestData.team2,
-                        links: bestData.links
-                      });
-                    }
-                  }
-                }
-              });
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
             });
-          });
-      });
-      return Array.from(arbitrageMap.values());
-    }
-    
-    // Fonction de rendu du tableau des cotes live (Opportunités d'Arbitrage)
-    function renderOddsTable(data) {
-      const tableBody = document.querySelector('#oddsTable tbody');
-      tableBody.innerHTML = '';
-      let allArbitragePairs = [];
-      let totalEvents = 0;
-      data.forEach(event => {
-        const arbitragePairs = calculateArbitrage(event.bookmakers);
-        totalEvents += 1;
-        arbitragePairs.forEach(pair => {
-          allArbitragePairs.push({
-            sport: event.sport_key,
-            event: `${event.home_team || 'N/A'} vs ${event.away_team || 'N/A'}`,
-            ...pair
-          });
-        });
-      });
-      const filteredPairs = filterUniqueBets(allArbitragePairs);
-      filteredPairs.sort((a, b) => parseFloat(b.gain) - parseFloat(a.gain));
-      
-      // Recalcul des totaux
-      const totalOpportunities = filteredPairs.length;
-      const uniqueEvents = new Set(filteredPairs.map(pair => pair.event));
-      const uniqueBookmakers = new Set();
-      filteredPairs.forEach(pair => {
-        uniqueBookmakers.add(pair.bookmaker1);
-        uniqueBookmakers.add(pair.bookmaker2);
-      });
-      document.getElementById('totalOpportunities').textContent = totalOpportunities;
-      document.getElementById('totalEvents').textContent = uniqueEvents.size;
-      document.getElementById('totalBookmakers').textContent = uniqueBookmakers.size;
-      
-      filteredPairs.forEach(pair => {
-        const row = document.createElement('tr');
-        row.className = "main-row";
-        row.innerHTML = `
-          <td>${pair.sport || 'N/A'}</td>
-          <td>${pair.event}</td>
-          <td>
-            ${pair.bookmaker1} (${pair.odds1})<br>
-            ${pair.bookmaker2} (${pair.odds2})
-          </td>
-          <td>
-            <b>${pair.team1}</b>: ${pair.stake1.toFixed(2)}€ chez ${pair.bookmaker1}<br>
-            <b>${pair.team2}</b>: ${pair.stake2.toFixed(2)}€ chez ${pair.bookmaker2}
-          </td>
-          <td class="arbitrage">Gain : ${parseFloat(pair.gain).toFixed(2)}€</td>
-        `;
-        tableBody.appendChild(row);
-      });
-      renderBookmakersTab(filteredPairs);
-    }
-    
-    // Fonction de rendu du tableau des cotes historiques (Nouvel onglet "Historique des Cotes")
-    function renderHistoricalTable(data) {
-      const tableBody = document.querySelector('#historicalTable tbody');
-      tableBody.innerHTML = '';
-      // Pour chaque événement historique, on suppose que la réponse inclut des champs tels que:
-      // - sport_key
-      // - home_team, away_team
-      // - bookmakers[].title, bookmakers[].history (un tableau d'objets contenant {odds, date})
-      data.forEach(event => {
-        if (event.bookmakers) {
-          event.bookmakers.forEach(bookmaker => {
-            if (bookmaker.history && bookmaker.history.length > 0) {
-              bookmaker.history.forEach(historyEntry => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                  <td>${event.sport_key || 'N/A'}</td>
-                  <td>${event.home_team || 'N/A'} vs ${event.away_team || 'N/A'}</td>
-                  <td>${bookmaker.title}</td>
-                  <td>${parseFloat(historyEntry.odds).toFixed(2)}</td>
-                  <td>${historyEntry.date || 'N/A'}</td>
-                `;
-                tableBody.appendChild(row);
-              });
-            }
-          });
+            document.getElementById(tabId).style.display = 'block';
+            
+            if (tabId === 'historicalOdds') fetchOdds('/historical-odds', 'historicalTable');
         }
-      });
-    }
-    
-    // Fonction de rendu du tableau des Bookmakers Rentables sur le Long Terme (agrégation historique)
-    function renderLongTermTable(data) {
-      // Nous agrégeons les cotes historiques par bookmaker.
-      // Pour chaque bookmaker, nous additionnons les gains historiques.
-      const aggregation = {};
-      data.forEach(event => {
-        if (event.bookmakers) {
-          event.bookmakers.forEach(bookmaker => {
-            if (bookmaker.history && bookmaker.history.length > 0) {
-              // Supposons que pour chaque historique, nous pouvons calculer un gain (ceci est à adapter selon vos données)
-              bookmaker.history.forEach(historyEntry => {
-                const gain = parseFloat(historyEntry.gain) || 0; // Si le champ gain est fourni
-                if (!aggregation[bookmaker.title]) {
-                  aggregation[bookmaker.title] = { totalGain: 0, events: new Set() };
-                }
-                aggregation[bookmaker.title].totalGain += gain;
-                aggregation[bookmaker.title].events.add(`${event.home_team} vs ${event.away_team}`);
-              });
-            }
-          });
-        }
-      });
-      // Convertir en tableau et trier par totalGain décroissant
-      const sorted = Object.entries(aggregation).sort((a, b) => b[1].totalGain - a[1].totalGain);
-      const tableBody = document.querySelector('#longtermTable tbody');
-      tableBody.innerHTML = '';
-      sorted.slice(0, 10).forEach((entry, index) => {
-        const bookmaker = entry[0];
-        const totalGain = entry[1].totalGain.toFixed(2);
-        const numEvents = entry[1].events.size;
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${bookmaker}</td>
-          <td>${totalGain}€</td>
-          <td>${numEvents}</td>
-        `;
-        tableBody.appendChild(row);
-      });
-    }
-    
-    // Fonction d'agrégation pour le classement des 10 bookmakers rentables en temps réel (inchangée)
-    function renderBookmakersTab(allArbitragePairs) {
-      const bookmakersAggregation = {};
-      allArbitragePairs.forEach(bet => {
-        const name1 = bet.bookmaker1;
-        if (!bookmakersAggregation[name1]) {
-          bookmakersAggregation[name1] = { totalGain: 0, count: 0, bets: {} };
-        }
-        bookmakersAggregation[name1].totalGain += parseFloat(bet.gain);
-        bookmakersAggregation[name1].count += 1;
-        bookmakersAggregation[name1].bets[bet.key] = bet;
-        
-        const name2 = bet.bookmaker2;
-        if (!bookmakersAggregation[name2]) {
-          bookmakersAggregation[name2] = { totalGain: 0, count: 0, bets: {} };
-        }
-        bookmakersAggregation[name2].totalGain += parseFloat(bet.gain);
-        bookmakersAggregation[name2].count += 1;
-        bookmakersAggregation[name2].bets[bet.key] = bet;
-      });
-      let sortedBookmakers = Object.entries(bookmakersAggregation)
-        .sort((a, b) => b[1].totalGain - a[1].totalGain)
-        .slice(0, 10);
-      let html = '<h2>Top 10 Bookmakers Rentables</h2>';
-      html += '<table><thead><tr><th>Rang</th><th>Bookmaker</th><th>Total Gain</th><th>Nombre d\'opportunités</th></tr></thead><tbody>';
-      sortedBookmakers.forEach((entry, index) => {
-        const name = entry[0];
-        const data = entry[1];
-        html += `<tr>
-                   <td>${index + 1}</td>
-                   <td>${name}</td>
-                   <td>${data.totalGain.toFixed(2)}€</td>
-                   <td>${data.count}</td>
-                 </tr>`;
-      });
-      html += '</tbody></table>';
-      document.getElementById('bookmakersTab').innerHTML = html;
-    }
-    
-    // Fonction pour gérer l'affichage des onglets
-    function showTab(tabName) {
-      document.getElementById('arbitrageTab').style.display = (tabName === 'arbitrage') ? 'block' : 'none';
-      document.getElementById('historicalTab').style.display = (tabName === 'historical') ? 'block' : 'none';
-      document.getElementById('longtermTab').style.display = (tabName === 'longterm') ? 'block' : 'none';
-      document.getElementById('bookmakersTab').style.display = 'none'; // On affiche bookmakers dans l'onglet longterm ou via leur propre agrégation
-    }
-    
-    // Appels périodiques
-    // Pour les données live
-    setInterval(fetchAllOdds, 5000);
-    fetchAllOdds();
-    // Pour les données historiques
-    setInterval(fetchHistoricalOdds, 60000); // par exemple toutes les 60 secondes
-    fetchHistoricalOdds();
-  </script>
+    </script>
 </body>
 </html>
