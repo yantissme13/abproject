@@ -1,4 +1,8 @@
 require('dotenv').config();
+console.log("🔍 Vérification des variables d'environnement...");
+console.log("URL_MONGO:", process.env.URL_MONGO || "❌ NON DÉFINIE");
+console.log("API_KEY:", process.env.API_KEY || "❌ NON DÉFINIE");
+console.log("PORT:", process.env.PORT || "❌ NON DÉFINIE");
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
