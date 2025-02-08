@@ -6,12 +6,12 @@ const axios = require('axios');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 const mongoURI = process.env.URL_MONGO;
 const apiKey = process.env.API_KEY;
 const baseURL = 'https://api.the-odds-api.com/v4';
 
-// Vérification des variables d'environnement
+// ✅ Vérification des variables d'environnement
 if (!mongoURI) {
     console.error("❌ ERREUR: La variable d'environnement URL_MONGO est absente ou mal configurée.");
     process.exit(1);
@@ -21,7 +21,7 @@ if (!apiKey) {
     process.exit(1);
 }
 
-// Connexion à MongoDB
+// ✅ Connexion à MongoDB
 mongoose.connect(mongoURI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
@@ -31,7 +31,7 @@ mongoose.connect(mongoURI, {
       process.exit(1);
   });
 
-// Définition du modèle des cotes
+// ✅ Modèle de données pour les cotes
 const OddsSchema = new mongoose.Schema({
     sport: String,
     event: String,
@@ -46,12 +46,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ✅ Route pour servir la page principale
+// ✅ Page principale (test du serveur)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ✅ Route pour récupérer les cotes live
+// ✅ Récupération des cotes live depuis l'API
 app.get('/live-odds', async (req, res) => {
     try {
         const response = await axios.get(`${baseURL}/sports/upcoming/odds`, {
@@ -63,18 +63,59 @@ app.get('/live-odds', async (req, res) => {
         });
         res.json(response.data);
     } catch (error) {
-        console.error('❌ Erreur récupération des cotes live:', error.message);
+        console.error('❌ Erreur récupération des cotes live :', error.message);
         res.status(500).json({ message: 'Erreur récupération cotes live' });
     }
 });
 
-// ✅ Route pour récupérer les cotes historiques
+// ✅ Récupération et stockage des cotes historiques dans MongoDB
+async function fetchAndStoreHistoricalOdds() {
+    try {
+        console.log('🔄 Récupération des cotes historiques...');
+        const response = await axios.get(`${baseURL}/sports`, { params: { apiKey } });
+        const sports = response.data.map(sport => sport.key);
+
+        for (const sport of sports) {
+            try {
+                const oddsResponse = await axios.get(`${baseURL}/historical/sports/${sport}/odds`, {
+                    params: {
+                        apiKey,
+                        regions: 'us,eu',
+                        markets: 'h2h,spreads,totals',
+                        date: new Date().toISOString()
+                    }
+                });
+                const oddsData = oddsResponse.data;
+                for (const event of oddsData) {
+                    for (const bookmaker of event.bookmakers) {
+                        await Odds.findOneAndUpdate(
+                            { sport: event.sport_key, event: event.id, bookmaker: bookmaker.title },
+                            { odds: bookmaker.markets, timestamp: new Date() },
+                            { upsert: true, new: true }
+                        );
+                    }
+                }
+                console.log(`✅ Cotes mises à jour pour "${sport}"`);
+            } catch (error) {
+                console.error(`❌ Erreur récupération cotes "${sport}" :`, error.message);
+            }
+        }
+        console.log('✅ Mise à jour des cotes historiques terminée.');
+    } catch (error) {
+        console.error('❌ Erreur récupération des sports :', error.message);
+    }
+}
+
+// ✅ Exécution du script de récupération toutes les heures
+setInterval(fetchAndStoreHistoricalOdds, 3600000);
+
+// ✅ Route pour récupérer les cotes historiques stockées
 app.get('/historical-odds', async (req, res) => {
     try {
         const odds = await Odds.find().sort({ timestamp: -1 }).limit(100);
         res.json(odds);
     } catch (error) {
-        console.error('❌ Erreur récupération des cotes historiques:', error.message);
+        console.error('❌ Erreur récupération cotes historiques :', error.message);
         res.status(500).json({ message: 'Erreur récupération cotes historiques' });
     }
 });
