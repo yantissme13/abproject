@@ -7,11 +7,11 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const mongoURI = process.env.URL_MONGO;
+const mongoURI = process.env.URL_MONGO ? `${process.env.URL_MONGO}/mydatabase` : 'mongodb://mongo:rKwCKZMFUuKhqjHxaOMsSonBPcBWSrLk@monorail.proxy.rlwy.net:28614/mydatabase';
 const apiKey = process.env.API_KEY;
 const baseURL = 'https://api.the-odds-api.com/v4';
 
-// Vérification des variables d'environnement
+// 🔍 Vérification des variables d’environnement
 if (!mongoURI) {
     console.error("❌ ERREUR: La variable d'environnement URL_MONGO est absente ou mal configurée.");
     process.exit(1);
@@ -21,17 +21,17 @@ if (!apiKey) {
     process.exit(1);
 }
 
-// Connexion à MongoDB
+// 🔗 Connexion à MongoDB avec gestion des erreurs
 mongoose.connect(mongoURI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-}).then(() => console.log('✅ Connexion à MongoDB réussie !'))
+}).then(() => console.log('✅ Connexion à MongoDB réussie'))
   .catch(err => {
       console.error('❌ Erreur de connexion à MongoDB :', err);
       process.exit(1);
   });
 
-// Définition du modèle des cotes
+// 📌 Définition du modèle des cotes
 const OddsSchema = new mongoose.Schema({
     sport: String,
     event: String,
@@ -46,19 +46,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ✅ Test du serveur
+// ✅ Test du serveur (page d’accueil)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// ✅ Route de test pour la connexion MongoDB
-app.get('/test-db', async (req, res) => {
-    try {
-        await mongoose.connection.db.admin().ping();
-        res.send("✅ Connexion MongoDB réussie !");
-    } catch (error) {
-        res.status(500).send("❌ Erreur de connexion MongoDB : " + error.message);
-    }
 });
 
 // ✅ Route pour récupérer les cotes live
@@ -95,6 +85,7 @@ async function fetchAndStoreHistoricalOdds() {
                         date: new Date().toISOString()
                     }
                 });
+
                 const oddsData = oddsResponse.data;
                 for (const event of oddsData) {
                     for (const bookmaker of event.bookmakers) {
@@ -116,7 +107,7 @@ async function fetchAndStoreHistoricalOdds() {
     }
 }
 
-// Rafraîchissement des cotes toutes les heures
+// 🔄 Rafraîchissement des cotes toutes les heures
 setInterval(fetchAndStoreHistoricalOdds, 3600000);
 
 // ✅ Route pour récupérer les cotes historiques
