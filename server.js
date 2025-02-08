@@ -18,7 +18,7 @@ mongoose.connect(mongoURI, {
 }).then(() => console.log('✅ Connexion à MongoDB réussie'))
   .catch(err => console.error('❌ Erreur de connexion à MongoDB :', err));
 
-// Définition du modèle des cotes
+// Modèle MongoDB pour stocker les cotes historiques
 const OddsSchema = new mongoose.Schema({
     sport: String,
     event: String,
@@ -31,59 +31,36 @@ const Odds = mongoose.model('Odds', OddsSchema);
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'))); // ✅ Correction : Servir les fichiers statiques
 
-// Endpoint de test pour vérifier si le serveur tourne
+// Route principale pour tester le serveur
 app.get('/', (req, res) => {
-    res.send('✅ Serveur backend opérationnel !');
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Fonction pour récupérer et stocker les cotes historiques efficacement
-async function fetchAndStoreHistoricalOdds() {
+// ✅ Route pour récupérer les cotes live
+app.get('/live-odds', async (req, res) => {
     try {
-        console.log('🔄 Récupération des cotes historiques...');
-        const response = await axios.get(`${baseURL}/sports`, { params: { apiKey } });
-        const sports = response.data.map(sport => sport.key);
-
-        for (const sport of sports) {
-            try {
-                const oddsResponse = await axios.get(`${baseURL}/historical/sports/${sport}/odds`, {
-                    params: {
-                        apiKey,
-                        regions: 'us,eu',
-                        markets: 'h2h,spreads,totals',
-                        date: new Date().toISOString()
-                    }
-                });
-
-                const oddsData = oddsResponse.data;
-                for (const event of oddsData) {
-                    for (const bookmaker of event.bookmakers) {
-                        await Odds.findOneAndUpdate(
-                            { sport: event.sport_key, event: event.id, bookmaker: bookmaker.title },
-                            { odds: bookmaker.markets, timestamp: new Date() },
-                            { upsert: true, new: true }
-                        );
-                    }
-                }
-                console.log(`✅ Cotes mises à jour pour "${sport}"`);
-            } catch (error) {
-                console.error(`❌ Erreur récupération cotes "${sport}" :`, error.message);
+        const response = await axios.get(`${baseURL}/sports/upcoming/odds`, {
+            params: {
+                apiKey,
+                regions: 'us,eu',
+                markets: 'h2h,spreads,totals'
             }
-        }
-        console.log('✅ Mise à jour des cotes historiques terminée.');
+        });
+
+        res.json(response.data);
     } catch (error) {
-        console.error('❌ Erreur récupération des sports :', error.message);
+        console.error('❌ Erreur récupération des cotes live :', error.message);
+        res.status(500).json({ message: 'Erreur récupération des cotes live' });
     }
-}
+});
 
-// Rafraîchissement des cotes toutes les heures
-setInterval(fetchAndStoreHistoricalOdds, 3600000);
-
-// Endpoint pour récupérer les cotes historiques
+// ✅ Route pour récupérer les cotes historiques
 app.get('/historical-odds', async (req, res) => {
     try {
         const odds = await Odds.find().sort({ timestamp: -1 }).limit(100);
+        console.log("🔍 Données historiques trouvées :", odds.length);
         res.json(odds);
     } catch (error) {
         console.error('❌ Erreur récupération cotes historiques :', error.message);
