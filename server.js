@@ -18,7 +18,24 @@ mongoose.connect(mongoURI, {
 }).then(() => console.log('✅ Connexion à MongoDB réussie'))
   .catch(err => console.error('❌ Erreur de connexion à MongoDB :', err));
 
-// Modèle MongoDB pour stocker les cotes historiques
+app.use(cors());
+app.use(express.json());
+
+// ✅ Ajout de la ligne pour s'assurer que styles.css est bien accessible
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ✅ Ajout d'un middleware spécifique pour éviter les erreurs de MIME
+app.get('/styles.css', (req, res) => {
+    res.type('text/css'); // Forcer le bon type MIME
+    res.sendFile(path.join(__dirname, 'public', 'styles.css'));
+});
+
+// ✅ Ajout d'une route pour servir la page index.html correctement
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Définition du modèle des cotes
 const OddsSchema = new mongoose.Schema({
     sport: String,
     event: String,
@@ -29,38 +46,52 @@ const OddsSchema = new mongoose.Schema({
 
 const Odds = mongoose.model('Odds', OddsSchema);
 
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public'))); // ✅ Correction : Servir les fichiers statiques
-
-// Route principale pour tester le serveur
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// ✅ Route pour récupérer les cotes live
-app.get('/live-odds', async (req, res) => {
+// Fonction pour récupérer et stocker les cotes historiques efficacement
+async function fetchAndStoreHistoricalOdds() {
     try {
-        const response = await axios.get(`${baseURL}/sports/upcoming/odds`, {
-            params: {
-                apiKey,
-                regions: 'us,eu',
-                markets: 'h2h,spreads,totals'
+        console.log('🔄 Récupération des cotes historiques...');
+        const response = await axios.get(`${baseURL}/sports`, { params: { apiKey } });
+        const sports = response.data.map(sport => sport.key);
+
+        for (const sport of sports) {
+            try {
+                const oddsResponse = await axios.get(`${baseURL}/historical/sports/${sport}/odds`, {
+                    params: {
+                        apiKey,
+                        regions: 'us,eu',
+                        markets: 'h2h,spreads,totals',
+                        date: new Date().toISOString()
+                    }
+                });
+
+                const oddsData = oddsResponse.data;
+                for (const event of oddsData) {
+                    for (const bookmaker of event.bookmakers) {
+                        await Odds.findOneAndUpdate(
+                            { sport: event.sport_key, event: event.id, bookmaker: bookmaker.title },
+                            { odds: bookmaker.markets, timestamp: new Date() },
+                            { upsert: true, new: true }
+                        );
+                    }
+                }
+                console.log(`✅ Cotes mises à jour pour "${sport}"`);
+            } catch (error) {
+                console.error(`❌ Erreur récupération cotes "${sport}" :`, error.message);
             }
-        });
-
-        res.json(response.data);
+        }
+        console.log('✅ Mise à jour des cotes historiques terminée.');
     } catch (error) {
-        console.error('❌ Erreur récupération des cotes live :', error.message);
-        res.status(500).json({ message: 'Erreur récupération des cotes live' });
+        console.error('❌ Erreur récupération des sports :', error.message);
     }
-});
+}
 
-// ✅ Route pour récupérer les cotes historiques
+// Rafraîchissement des cotes toutes les heures
+setInterval(fetchAndStoreHistoricalOdds, 3600000);
+
+// Endpoint pour récupérer les cotes historiques
 app.get('/historical-odds', async (req, res) => {
     try {
         const odds = await Odds.find().sort({ timestamp: -1 }).limit(100);
-        console.log("🔍 Données historiques trouvées :", odds.length);
         res.json(odds);
     } catch (error) {
         console.error('❌ Erreur récupération cotes historiques :', error.message);
