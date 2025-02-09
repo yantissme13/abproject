@@ -1,8 +1,4 @@
 require('dotenv').config();
-console.log("🔍 Vérification des variables d'environnement...");
-console.log("URL_MONGO:", process.env.URL_MONGO || "❌ NON DÉFINIE");
-console.log("API_KEY:", process.env.API_KEY || "❌ NON DÉFINIE");
-console.log("PORT:", process.env.PORT || "❌ NON DÉFINIE");
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -10,14 +6,14 @@ const axios = require('axios');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
-const mongoURI = process.env.URL_MONGO;
+const PORT = process.env.PORT || 3001;
+const mongoURI = process.env.MONGO_PUBLIC_URL;
 const apiKey = process.env.API_KEY;
 const baseURL = 'https://api.the-odds-api.com/v4';
 
-// ✅ Vérification des variables d'environnement
+// Vérification des variables d'environnement
 if (!mongoURI) {
-    console.error("❌ ERREUR: La variable d'environnement URL_MONGO est absente ou mal configurée.");
+    console.error("❌ ERREUR: La variable d'environnement MONGO_PUBLIC_URL est absente ou mal configurée.");
     process.exit(1);
 }
 if (!apiKey) {
@@ -25,7 +21,7 @@ if (!apiKey) {
     process.exit(1);
 }
 
-// ✅ Connexion à MongoDB
+// Connexion à MongoDB
 mongoose.connect(mongoURI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
@@ -35,7 +31,7 @@ mongoose.connect(mongoURI, {
       process.exit(1);
   });
 
-// ✅ Modèle de données pour les cotes
+// Définition du modèle des cotes
 const OddsSchema = new mongoose.Schema({
     sport: String,
     event: String,
@@ -50,12 +46,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ✅ Page principale (test du serveur)
+// ✅ Test du serveur
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ✅ Récupération des cotes live depuis l'API
+// ✅ Route pour récupérer les cotes live
 app.get('/live-odds', async (req, res) => {
     try {
         const response = await axios.get(`${baseURL}/sports/upcoming/odds`, {
@@ -72,13 +68,12 @@ app.get('/live-odds', async (req, res) => {
     }
 });
 
-// ✅ Récupération et stockage des cotes historiques dans MongoDB
+// ✅ Fonction pour récupérer et stocker les cotes historiques
 async function fetchAndStoreHistoricalOdds() {
     try {
         console.log('🔄 Récupération des cotes historiques...');
         const response = await axios.get(`${baseURL}/sports`, { params: { apiKey } });
         const sports = response.data.map(sport => sport.key);
-
         for (const sport of sports) {
             try {
                 const oddsResponse = await axios.get(`${baseURL}/historical/sports/${sport}/odds`, {
@@ -110,10 +105,10 @@ async function fetchAndStoreHistoricalOdds() {
     }
 }
 
-// ✅ Exécution du script de récupération toutes les heures
+// Rafraîchissement des cotes toutes les heures
 setInterval(fetchAndStoreHistoricalOdds, 3600000);
 
-// ✅ Route pour récupérer les cotes historiques stockées
+// ✅ Route pour récupérer les cotes historiques
 app.get('/historical-odds', async (req, res) => {
     try {
         const odds = await Odds.find().sort({ timestamp: -1 }).limit(100);
