@@ -1,116 +1,232 @@
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🔴 Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('🔴 Uncaught Exception:', err);
+});
+
 require('dotenv').config();
+const { Worker } = require('bullmq');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const axios = require('axios');
-const path = require('path');
+const redis = require('redis');
+const { Queue } = require('bullmq');
+const { Server } = require("socket.io");
+const saveToDatabase = require('./database');
+const Odds = require('./models/OddsModel');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
-const mongoURI = process.env.MONGO_URI;
-const apiKey = process.env.API_KEY;
-const baseURL = 'https://api.the-odds-api.com/v4';
-
-// Vérification des variables d'environnement
-console.log("🔍 Vérification des variables d'environnement...");
-console.log("MONGO_URI:", mongoURI || "❌ NON DÉFINIE");
-console.log("API_KEY:", apiKey || "❌ NON DÉFINIE");
-console.log("PORT:", PORT);
-
-if (!mongoURI) {
-    console.error("❌ ERREUR : La variable d'environnement MONGO_URI est absente ou mal configurée.");
-    process.exit(1);
-}
-if (!apiKey) {
-    console.error("❌ ERREUR : La variable d'environnement API_KEY est absente ou mal configurée.");
-    process.exit(1);
-}
-
-// Connexion à MongoDB
-mongoose.connect(mongoURI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    tls: true,  // Activation de TLS
-    authSource: "admin", // Authentification sur admin
-}).then(() => console.log('✅ Connexion à MongoDB réussie'))
-  .catch(err => {
-      console.error('❌ Erreur de connexion à MongoDB :', err);
-      process.exit(1);
-  });
-
-// Définition du modèle des cotes
-const OddsSchema = new mongoose.Schema({
-    sport: String,
-    event: String,
-    bookmaker: String,
-    odds: Object,
-    timestamp: Date,
-}, { timestamps: true });
-
-const Odds = mongoose.model('Odds', OddsSchema);
-
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ✅ Test du serveur
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.use(express.static("public"));
+app.use((req, res, next) => {
+    res.setHeader("Content-Security-Policy", 
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+        "connect-src 'self' ws://localhost:3001 http://localhost:3001; " +
+        "style-src 'self' 'unsafe-inline';"
+    );
+    next();
 });
+let latestOdds = []; // Stocke les dernières cotes globalement
 
-// Fonction pour récupérer et stocker les cotes historiques
-async function fetchAndStoreHistoricalOdds() {
-    try {
-        console.log('🔄 Récupération des cotes historiques...');
-        const response = await axios.get(`${baseURL}/sports`, { params: { apiKey } });
-        const sports = response.data.map(sport => sport.key);
 
-        for (const sport of sports) {
-            try {
-                const oddsResponse = await axios.get(`${baseURL}/historical/sports/${sport}/odds`, {
-                    params: {
-                        apiKey,
-                        regions: 'us,eu',
-                        markets: 'h2h,spreads,totals',
-                        date: new Date().toISOString()
-                    }
-                });
-                const oddsData = oddsResponse.data;
-                for (const event of oddsData) {
-                    for (const bookmaker of event.bookmakers) {
-                        await Odds.findOneAndUpdate(
-                            { sport: event.sport_key, event: event.id, bookmaker: bookmaker.title },
-                            { odds: bookmaker.markets, timestamp: new Date() },
-                            { upsert: true, new: true }
-                        );
-                    }
-                }
-                console.log(`✅ Cotes mises à jour pour "${sport}"`);
-            } catch (error) {
-                console.error(`❌ Erreur récupération cotes "${sport}" :`, error.message);
+
+// 📌 Connexion à MongoDB
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log("✅ Connexion MongoDB réussie"))
+    .catch(err => console.error("❌ Erreur MongoDB :", err));
+
+// 📌 Connexion à Redis
+const client = redis.createClient({ url: process.env.REDIS_URL });
+client.connect().catch(err => console.error("❌ Erreur de connexion à Redis :", err));
+client.on('error', (err) => console.error('🔴 Erreur Redis :', err));
+
+// 📌 Configuration API
+const API_KEY = process.env.ODDS_API_KEY;
+const API_BASE_URL = 'https://api.the-odds-api.com/v4';
+
+// 📌 File d'attente BullMQ
+const fetchQueue = new Queue("fetchQueue", { connection: { host: "127.0.0.1", port: 6379 } });
+const telegramQueue = new Queue("TELEGRAM_QUEUE", { connection: { host: "127.0.0.1", port: 6379 } });
+
+// 📌 Configuration Telegram
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+const sendTelegramAlert = async (match, arbitrage) => {
+    const TOTAL_AMOUNT = 100;
+    let message = `🚀 Opportunité d’arbitrage détectée !\n`;
+    message += `📅 Match : ${match.home_team} vs ${match.away_team}\n`;
+    message += `🏟️ Compétition : ${match.league || match.sport || "N/A"}\n\n`;
+    message += `💰 Profit potentiel : ${arbitrage.percentage}%\n\n`;
+
+    let totalProb = arbitrage.bets.reduce((acc, bet) => acc + (1 / bet.odds), 0);
+    message += `📊 Bookmakers et mises optimales (sur ${TOTAL_AMOUNT}€) :\n`;
+    arbitrage.bets.forEach(bet => {
+        const stake = (TOTAL_AMOUNT / bet.odds) / totalProb;
+        message += `🏦 ${bet.bookmaker} - ${bet.team} | Cote : ${bet.odds} | Mise : ${stake.toFixed(2)}€\n`;
+    });
+
+    let retries = 0;
+    const maxRetries = 5; // Nombre de tentatives avant d'abandonner
+    const baseDelay = 3000; // 3 secondes entre chaque retry
+
+    while (retries < maxRetries) {
+        try {
+            await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                chat_id: TELEGRAM_CHAT_ID,
+                text: message,
+            });
+            console.log(`✅ Notification envoyée à Telegram après ${retries} tentatives.`);
+            break; // Succès, on sort de la boucle
+        } catch (error) {
+            if (error.response && error.response.status === 429) {
+                // Trop de requêtes, on attend avant de réessayer
+                let waitTime = (error.response.headers["retry-after"] || (baseDelay * (retries + 1))) * 1000;
+                console.warn(`⚠️ Telegram Rate Limit atteint. Réessai dans ${waitTime / 1000} secondes...`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+                retries++;
+            } else {
+                console.error("🔴 Erreur lors de l'envoi de l'alerte Telegram :", error.message);
+                break; // Si ce n'est pas une erreur 429, on arrête les tentatives
             }
         }
-        console.log('✅ Mise à jour des cotes historiques terminée.');
+    }
+};
+
+
+// 📌 Fonction principale pour récupérer les cotes et stocker en base
+async function fetchOdds() {
+    try {
+        console.log("📢 Début de la récupération des cotes...");
+        let sports = await client.get('sports_list');
+        if (!sports) {
+            const sportsResponse = await axios.get(`${API_BASE_URL}/sports`, { params: { apiKey: API_KEY } });
+            sports = sportsResponse.data.filter(sport => sport.active).map(sport => sport.key);
+            await client.setEx('sports_list', 86400, JSON.stringify(sports));
+        } else {
+            sports = JSON.parse(sports);
+        }
+        
+        const now = new Date();
+        const commenceTimeFrom = now.toISOString().split('.')[0] + "Z";
+        const markets = ['h2h', 'totals', 'spreads'];
+
+        for (const sport of sports) {
+            for (const market of markets) {
+                let lastOdds = await client.get(`odds_${sport}_${market}`);
+
+                try {
+                    const response = await axios.get(`${API_BASE_URL}/sports/${sport}/odds`, {
+                        params: {
+                            apiKey: API_KEY,
+                            regions: 'us',
+                            markets: market,
+                            oddsFormat: 'decimal',
+                            commenceTimeFrom
+                        }
+                    });
+
+                    if (JSON.stringify(response.data) !== lastOdds) {
+                        await client.setEx(`odds_${sport}_${market}`, 60, JSON.stringify(response.data));
+                        console.log(`✅ Mise à jour détectée pour ${sport} (${market})`);
+                        await processOdds(sport, market, response.data);
+                    } else {
+                        console.log(`✅ Aucune modification des cotes pour ${sport} (${market}), pas d'appel API.`);
+                    }
+                } catch (error) {
+                    console.error(`❌ Erreur sur ${sport} (${market}) :`, error.response?.data?.message || error.message);
+                }
+            }
+        }
     } catch (error) {
-        console.error('❌ Erreur récupération des sports :', error.message);
+        console.error("❌ Erreur lors de la récupération des cotes :", error);
     }
 }
 
-// Rafraîchissement des cotes toutes les heures
-setInterval(fetchAndStoreHistoricalOdds, 3600000);
+async function processOdds(sport, market, odds) {
+    if (!odds || odds.length === 0) {
+        console.log(`⚠️ Aucun événement trouvé pour ${sport} (${market})`);
+        return;
+    }
 
-// ✅ Route pour récupérer les cotes historiques
-app.get('/historical-odds', async (req, res) => {
-    try {
-        const odds = await Odds.find().sort({ timestamp: -1 }).limit(100);
-        res.json(odds);
-    } catch (error) {
-        console.error('❌ Erreur récupération cotes historiques :', error.message);
-        res.status(500).json({ message: 'Erreur récupération cotes historiques' });
+    console.log(`🔎 Analyse de ${odds.length} événements pour ${sport} (${market})`);
+    
+    let arbitrageOpportunities = [];
+
+    for (const event of odds) {
+        const arbitrage = calculateArbitrage(event);
+
+        if (arbitrage && arbitrage.percentage <= 30) { 
+            console.log(`💰 Opportunité trouvée sur ${sport} (${market}) ! Profit : ${arbitrage.percentage}%`);
+            arbitrageOpportunities.push({
+                sport, market, event, arbitrage
+            });
+
+            await sendTelegramAlert(event, arbitrage);
+        }
+    }
+
+    // Met à jour la variable globale
+    latestOdds = arbitrageOpportunities;
+
+    // Émet les nouvelles données via WebSocket
+    io.emit("latest_odds", latestOdds);
+}
+
+
+function calculateArbitrage(event) {
+    if (!event?.bookmakers?.length) return null;
+    let bestOdds = {};
+
+    for (const bookmaker of event.bookmakers) {
+        for (const market of bookmaker.markets || []) {
+            for (const outcome of market.outcomes) {
+                if (!bestOdds[outcome.name] || outcome.price > bestOdds[outcome.name].odds) {
+                    bestOdds[outcome.name] = { odds: outcome.price, bookmaker: bookmaker.title };
+                }
+            }
+        }
+    }
+
+    let sum = Object.values(bestOdds).reduce((acc, bet) => acc + (1 / bet.odds), 0);
+    if (sum < 1) {
+        const percentage = parseFloat(((1 - sum) * 100).toFixed(2));
+        if (percentage > 1) {
+            return { percentage, bets: Object.values(bestOdds) };
+        }
+    }
+    return null;
+}
+
+fetchOdds();
+setInterval(fetchOdds, 300000);
+
+// 🔹 Démarre le serveur HTTP + WebSocket
+const http = require('http');
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "https://abproject-production.up.railway.app/", // Autorise les connexions WebSocket depuis le client
+        methods: ["GET", "POST"]
     }
 });
 
-// ✅ Lancer le serveur
-app.listen(PORT, () => {
-    console.log(`🚀 Serveur backend en écoute sur http://localhost:${PORT}`);
+io.on("connection", (socket) => {
+    console.log("🟢 Un client est connecté à WebSocket");
+socket.emit("latest_odds", latestOdds);
+    socket.on("disconnect", () => {
+        console.log("🔴 Un client s'est déconnecté");
+    });
+});
+
+const PORT = process.env.PORT || 3001;
+
+// Écoute du serveur sur le port 3000
+server.listen(PORT, () => {
+    console.log(`✅ Serveur lancé sur http://localhost:${PORT}`);
 });

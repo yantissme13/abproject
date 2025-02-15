@@ -1,73 +1,38 @@
-// Fonction pour afficher un onglet spécifique
-function showTab(tabName) {
-  document.getElementById('live-odds').style.display = (tabName === 'live') ? 'block' : 'none';
-  document.getElementById('historical-odds').style.display = (tabName === 'historical') ? 'block' : 'none';
-}
+document.addEventListener("DOMContentLoaded", () => {
+    const socket = io("http://localhost:3001"); // Assure-toi que l'URL du serveur correspond
+    const oddsContainer = document.getElementById("odds-container");
 
-// Fonction pour récupérer les cotes live
-async function fetchLiveOdds() {
-  try {
-    const response = await fetch('/live-odds'); // ✅ Correction
-    if (!response.ok) throw new Error('Erreur récupération des cotes live.');
-    const data = await response.json();
+    console.log("🟢 Connecté au WebSocket !");
 
-    const table = document.querySelector('#live-odds tbody');
-    table.innerHTML = ''; 
+    socket.on("latest_odds", (oddsData) => {
+        console.log("📡 Données reçues depuis WebSocket :", oddsData);
 
-    if (data.length === 0) {
-      table.innerHTML = '<tr><td colspan="4">Aucune cote live disponible.</td></tr>';
-      return;
-    }
+        if (!oddsData || oddsData.length === 0) {
+            oddsContainer.innerHTML = "<p>Aucune opportunité détectée pour l'instant.</p>";
+            return;
+        }
 
-    data.forEach(odds => {
-      table.innerHTML += `
-        <tr>
-          <td>${odds.sport}</td>
-          <td>${odds.event}</td>
-          <td>${odds.bookmakers.map(bm => `${bm.title} (${bm.odds})`).join('<br>')}</td>
-          <td>${odds.gain || 'N/A'}</td>
-        </tr>
-      `;
+        oddsContainer.innerHTML = ""; // Efface les anciennes données
+
+        oddsData.forEach(({ event, arbitrage }) => {
+            if (!arbitrage || arbitrage.bets.length === 0) return; // Vérification de sécurité
+
+            const eventCard = document.createElement("div");
+            eventCard.classList.add("odds-card");
+
+            eventCard.innerHTML = `
+                <h2>${event.home_team} vs ${event.away_team}</h2>
+                ${arbitrage.bets.map(bet => `
+                    <p>🏦 ${bet.bookmaker} - <strong>${bet.team}</strong> | Cote : ${bet.odds}</p>
+                `).join("")}
+                <p class="profit">💰 Profit potentiel: ${arbitrage.percentage}%</p>
+            `;
+
+            oddsContainer.appendChild(eventCard);
+        });
+
+        if (oddsContainer.innerHTML === "") {
+            oddsContainer.innerHTML = "<p>Aucune opportunité rentable détectée.</p>";
+        }
     });
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-// Fonction pour récupérer les cotes historiques
-async function fetchHistoricalOdds() {
-  try {
-    const response = await fetch('/historical-odds'); // ✅ Correction
-    if (!response.ok) throw new Error('Erreur récupération des cotes historiques.');
-    const data = await response.json();
-
-    const table = document.querySelector('#historical-odds tbody');
-    table.innerHTML = '';
-
-    if (data.length === 0) {
-      table.innerHTML = '<tr><td colspan="5">Aucune donnée historique disponible.</td></tr>';
-      return;
-    }
-
-    data.forEach(odds => {
-      table.innerHTML += `
-        <tr>
-          <td>${odds.sport}</td>
-          <td>${odds.event}</td>
-          <td>${odds.bookmaker}</td>
-          <td>${JSON.stringify(odds.odds)}</td>
-          <td>${new Date(odds.timestamp).toLocaleString()}</td>
-        </tr>
-      `;
-    });
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-// Charger les données au démarrage
-document.addEventListener('DOMContentLoaded', () => {
-  showTab('live');
-  fetchLiveOdds();
-  fetchHistoricalOdds();
 });
