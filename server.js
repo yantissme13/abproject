@@ -41,15 +41,13 @@ mongoose.connect(process.env.MONGO_URI)
     .catch(err => console.error("❌ Erreur MongoDB :", err));
 
 // 📌 Connexion à Redis
-const redisURL = process.env.URL_PUBLIC_REDIS || process.env.URL_REDIS; // Prend l'URL publique si dispo, sinon la privée
-const client = redis.createClient({ url: redisURL });
+const redisURL = process.env.URL_PUBLIC_REDIS;
+console.log("🔍 URL Redis utilisée :", redisURL);
 
-client.on('error', (err) => {
-    console.error('🔴 Erreur Redis :', err);
-});
-client.on('connect', () => {
-    console.log('✅ Connexion à Redis réussie !');
-});
+const client = redis.createClient({ url: redisURL });
+client.connect()
+    .then(() => console.log("✅ Connexion Redis réussie"))
+    .catch(err => console.error("❌ Erreur de connexion à Redis :", err));
 
 
 // 📌 Configuration API
