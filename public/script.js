@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const socket = io("http://localhost:3001"); // Assure-toi que l'URL du serveur correspond
+    const socket = io("https://abproject-production.up.railway.app");
     const oddsContainer = document.getElementById("odds-container");
 
     console.log("🟢 Connecté au WebSocket !");
