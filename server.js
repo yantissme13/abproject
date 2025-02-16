@@ -41,7 +41,7 @@ mongoose.connect(process.env.MONGO_URI)
     .catch(err => console.error("❌ Erreur MongoDB :", err));
 
 // 📌 Connexion à Redis
-const client = redis.createClient({ url: process.env.REDIS_URL });
+const client = redis.createClient({ url: process.env.URL_REDIS });
 client.connect().catch(err => console.error("❌ Erreur de connexion à Redis :", err));
 client.on('error', (err) => console.error('🔴 Erreur Redis :', err));
 
