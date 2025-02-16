@@ -166,7 +166,7 @@ async function processOdds(sport, market, odds) {
     for (const event of odds) {
         const arbitrage = calculateArbitrage(event);
 
-        if (arbitrage && arbitrage.percentage <= 30) { 
+        if (arbitrage && arbitrage.percentage <= 300) { 
             console.log(`💰 Opportunité trouvée sur ${sport} (${market}) ! Profit : ${arbitrage.percentage}%`);
             arbitrageOpportunities.push({
                 sport, market, event, arbitrage
