@@ -50,8 +50,8 @@ const API_KEY = process.env.ODDS_API_KEY;
 const API_BASE_URL = 'https://api.the-odds-api.com/v4';
 
 // 📌 File d'attente BullMQ
-const fetchQueue = new Queue("fetchQueue", { connection: { host: "127.0.0.1", port: 6379 } });
-const telegramQueue = new Queue("TELEGRAM_QUEUE", { connection: { host: "127.0.0.1", port: 6379 } });
+const fetchQueue = new Queue("fetchQueue", { connection: { url: process.env.URL_REDIS } });
+const telegramQueue = new Queue("TELEGRAM_QUEUE", { connection: { url: process.env.URL_REDIS } });
 
 // 📌 Configuration Telegram
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
