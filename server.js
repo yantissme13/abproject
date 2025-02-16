@@ -41,7 +41,7 @@ mongoose.connect(process.env.MONGO_URI)
     .catch(err => console.error("❌ Erreur MongoDB :", err));
 
 // 📌 Connexion à Redis
-const client = redis.createClient({ url: process.env.URL_REDIS });
+const client = redis.createClient({ url: process.env.URL_PUBLIC_REDIS });
 client.connect().catch(err => console.error("❌ Erreur de connexion à Redis :", err));
 client.on('error', (err) => console.error('🔴 Erreur Redis :', err));
 
@@ -50,8 +50,8 @@ const API_KEY = process.env.ODDS_API_KEY;
 const API_BASE_URL = 'https://api.the-odds-api.com/v4';
 
 // 📌 File d'attente BullMQ
-const fetchQueue = new Queue("fetchQueue", { connection: { url: process.env.URL_REDIS } });
-const telegramQueue = new Queue("TELEGRAM_QUEUE", { connection: { url: process.env.URL_REDIS } });
+const fetchQueue = new Queue("fetchQueue", { connection: { url: process.env.URL_PUBLIC_REDIS } });
+const telegramQueue = new Queue("TELEGRAM_QUEUE", { connection: { url: process.env.URL_PUBLIC_REDIS } });
 
 // 📌 Configuration Telegram
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
