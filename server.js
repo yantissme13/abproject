@@ -120,7 +120,7 @@ async function fetchOdds() {
         const now = new Date();
         const commenceTimeFrom = now.toISOString().split('.')[0] + "Z";
         const markets = ['h2h', 'totals', 'spreads'];
-		const region = ['eu', 'uk'];
+		const region = ['eu'];
 
         for (const sport of sports) {
             for (const market of markets) {
