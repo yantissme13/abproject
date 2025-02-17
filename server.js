@@ -129,7 +129,7 @@ async function fetchOdds() {
                     const response = await axios.get(`${API_BASE_URL}/sports/${sport}/odds`, {
                         params: {
                             apiKey: API_KEY,
-                            regions: 'uk'
+                            regions: 'us'
                             markets: market,
                             oddsFormat: 'decimal',
                             commenceTimeFrom
