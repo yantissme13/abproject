@@ -63,7 +63,7 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 const sendTelegramAlert = async (match, arbitrage) => {
-    const TOTAL_AMOUNT = 100;
+    const TOTAL_AMOUNT = 18;
     let message = `🚀 Opportunité d’arbitrage détectée !\n`;
     message += `📅 Match : ${match.home_team} vs ${match.away_team}\n`;
     message += `🏟️ Compétition : ${match.league || match.sport || "N/A"}\n\n`;
@@ -129,7 +129,7 @@ async function fetchOdds() {
                     const response = await axios.get(`${API_BASE_URL}/sports/${sport}/odds`, {
                         params: {
                             apiKey: API_KEY,
-                            regions: 'uk',
+                            regions: 'eu',
                             markets: market,
                             oddsFormat: 'decimal',
                             commenceTimeFrom
@@ -160,14 +160,42 @@ async function processOdds(sport, market, odds) {
     }
 
     console.log(`🔎 Analyse de ${odds.length} événements pour ${sport} (${market})`);
-    
+
     let arbitrageOpportunities = [];
 
     for (const event of odds) {
         const arbitrage = calculateArbitrage(event);
 
-        if (arbitrage && arbitrage.percentage <= 300) { 
+        if (arbitrage && arbitrage.percentage > 1 && arbitrage.percentage <= 300) { 
             console.log(`💰 Opportunité trouvée sur ${sport} (${market}) ! Profit : ${arbitrage.percentage}%`);
+
+            // 📌 Affichage des données avant insertion
+            const dataToInsert = {
+                sport: sport,
+                league: event.league || "N/A",
+                event: `${event.home_team} vs ${event.away_team}`,
+                home_team: event.home_team,
+                away_team: event.away_team,
+                bookmaker1: arbitrage.bets[0].bookmaker,
+                bookmaker2: arbitrage.bets[1]?.bookmaker || "N/A",
+                team_to_bet1: arbitrage.bets[0].team,
+                team_to_bet2: arbitrage.bets[1]?.team || "N/A",
+                best_odds1: arbitrage.bets[0].odds,
+                best_odds2: arbitrage.bets[1]?.odds || 0,
+                stake1: (18 / arbitrage.bets[0].odds).toFixed(2),
+                stake2: arbitrage.bets[1] ? (18 / arbitrage.bets[1].odds).toFixed(2) : "0",
+                profit: `${arbitrage.percentage}%`
+            };
+
+            console.log("📌 Tentative d'insertion de données MongoDB :", dataToInsert);
+
+            try {
+                const insertedData = await Odds.create(dataToInsert);
+                console.log("✅ Insertion réussie :", insertedData);
+            } catch (error) {
+                console.error("❌ Erreur lors de l'insertion MongoDB :", error);
+            }
+
             arbitrageOpportunities.push({
                 sport, market, event, arbitrage
             });
@@ -182,6 +210,8 @@ async function processOdds(sport, market, odds) {
     // Émet les nouvelles données via WebSocket
     io.emit("latest_odds", latestOdds);
 }
+
+
 
 
 function calculateArbitrage(event) {
