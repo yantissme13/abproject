@@ -231,42 +231,15 @@ function calculateArbitrage(event) {
     if (!event?.bookmakers?.length) return null;
     let bestOdds = {};
 
-    function calculateArbitrage(event) {
-    let bestOdds = {};
-
     for (const bookmaker of event.bookmakers) {
         for (const market of bookmaker.markets || []) {
             for (const outcome of market.outcomes) {
-                let teamName = outcome.name.trim().toLowerCase(); // Nettoyage du nom d'équipe
-
-                // 🔹 Vérifie si outcome.name contient une des équipes
-                if (event.home_team && teamName.includes(event.home_team.toLowerCase())) {
-                    teamName = event.home_team;
-                } else if (event.away_team && teamName.includes(event.away_team.toLowerCase())) {
-                    teamName = event.away_team;
-                } else {
-                    continue; // Ignore si on ne peut pas associer l'équipe
-                }
-
-                if (!bestOdds[teamName] || outcome.price > bestOdds[teamName].odds) {
-                    bestOdds[teamName] = { odds: outcome.price, bookmaker: bookmaker.title };
+                if (!bestOdds[outcome.name] || outcome.price > bestOdds[outcome.name].odds) {
+                    bestOdds[outcome.name] = { odds: outcome.price, bookmaker: bookmaker.title };
                 }
             }
         }
     }
-
-    // 🔍 Debug : Vérifie si les cotes sont bien attribuées
-    console.log("📌 Cotes attribuées aux équipes :", JSON.stringify(bestOdds, null, 2));
-
-    // Vérifie qu'on a bien deux équipes avec des cotes avant de continuer
-    if (Object.keys(bestOdds).length < 2) {
-        console.log("⚠️ Pas assez de cotes pour calculer une opportunité d’arbitrage.");
-        return null;
-    }
-
-    return bestOdds;
-}
-
 
     let sum = Object.values(bestOdds).reduce((acc, bet) => acc + (1 / bet.odds), 0);
     if (sum < 1) {
