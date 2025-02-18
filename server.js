@@ -167,7 +167,12 @@ async function processOdds(sport, market, odds) {
     for (const event of odds) {
         const arbitrage = calculateArbitrage(event);
 
-        if (arbitrage && arbitrage.percentage > 1 && arbitrage.percentage <= 300) { 
+        if (arbitrage && 
+			arbitrage.percentage > 1 && 
+			arbitrage.percentage <= 300 &&
+			arbitrage.bets.length >= 2 &&
+			new Set(arbitrage.bets.map(bet => bet.bookmaker)).size >= 2) { 
+			
             console.log(`💰 Opportunité trouvée sur ${sport} (${market}) ! Profit : ${arbitrage.percentage}%`);
 
             // 📌 Affichage des données avant insertion
@@ -190,18 +195,25 @@ async function processOdds(sport, market, odds) {
 
             console.log("📌 Tentative d'insertion de données MongoDB :", dataToInsert);
 
-            try {
-                const insertedData = await Odds.create(dataToInsert);
-                console.log("✅ Insertion réussie :", insertedData);
-            } catch (error) {
-                console.error("❌ Erreur lors de l'insertion MongoDB :", error);
-            }
-
             arbitrageOpportunities.push({
-                sport, market, event, arbitrage
-            });
+				sport, market, event, arbitrage
+			});
 
-            await sendTelegramAlert(event, arbitrage);
+			// 📢 Envoie immédiatement les données aux WebSockets AVANT d'attendre MongoDB ou Telegram
+			io.emit("latest_odds", arbitrageOpportunities);
+
+			try {
+				const insertedData = await Odds.create(dataToInsert);
+				console.log("✅ Insertion réussie :", insertedData);
+			} catch (error) {
+				console.error("❌ Erreur lors de l'insertion MongoDB :", error);
+			}
+
+			// ⏳ Ensuite, envoie l'alerte Telegram SANS bloquer l'affichage sur le site
+			sendTelegramAlert(event, arbitrage).catch(err => 
+				console.error("❌ Erreur envoi Telegram :", err)
+			);
+
         }
     }
 
