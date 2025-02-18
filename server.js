@@ -224,7 +224,7 @@ async function processOdds(sport, market, odds) {
             );
         }
     }
-}
+} // <-- Cette accolade ferme bien la fonction
 
 
     // Met à jour la variable globale
