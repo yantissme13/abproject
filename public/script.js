@@ -12,36 +12,40 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("🟢 Connecté au WebSocket !");
 
     socket.on("latest_odds", (oddsData) => {
-        console.log("📡 Données reçues depuis WebSocket :", oddsData);
+    console.log("📡 Données reçues depuis WebSocket :", oddsData);
 
-        if (!oddsData || oddsData.length === 0) {
-            if (oddsContainer.children.length === 0) {
-                oddsContainer.innerHTML = "<p>Aucune opportunité détectée pour l'instant.</p>";
-            }
-            return;
+    if (!oddsData || oddsData.length === 0) {
+        oddsContainer.innerHTML = "<p>Aucune opportunité détectée pour l'instant.</p>";
+        return;
+    }
+
+    // 🔄 Fusionne les nouvelles opportunités avec celles déjà affichées
+    oddsData.forEach(({ event, arbitrage }) => {
+        const eventId = `${event.home_team}-${event.away_team}`;
+
+        // Vérifie si l'événement est déjà affiché, si oui, on met à jour
+        const existingIndex = allOdds.findIndex(odds => odds.eventId === eventId);
+        if (existingIndex !== -1) {
+            allOdds[existingIndex] = { eventId, event, arbitrage }; // Met à jour si existant
+        } else {
+            allOdds.push({ eventId, event, arbitrage }); // Ajoute sinon
         }
 
-        oddsData.forEach(({ event, arbitrage }) => {
-            if (!arbitrage || arbitrage.bets.length === 0) return;
-
-            const eventId = `${event.home_team}-${event.away_team}`;
-            if (!allOdds.some(odds => odds.eventId === eventId)) {
-                allOdds.push({ eventId, event, arbitrage });
-
-                arbitrage.bets.forEach(bet => {
-                    if (!bookmakersData[bet.bookmaker]) {
-                        bookmakersData[bet.bookmaker] = { count: 0, totalROI: 0, bets: [] };
-                    }
-                    bookmakersData[bet.bookmaker].count++;
-                    bookmakersData[bet.bookmaker].totalROI += arbitrage.percentage;
-                    bookmakersData[bet.bookmaker].bets.push({ event, bet, arbitrage });
-                });
+        arbitrage.bets.forEach(bet => {
+            if (!bookmakersData[bet.bookmaker]) {
+                bookmakersData[bet.bookmaker] = { count: 0, totalROI: 0, bets: [] };
             }
+            bookmakersData[bet.bookmaker].count++;
+            bookmakersData[bet.bookmaker].totalROI += arbitrage.percentage;
+            bookmakersData[bet.bookmaker].bets.push({ event, bet, arbitrage });
         });
-        updateBookmakersList();
-        updateTotalArbitrage();
-        updateOddsList();
     });
+
+    updateBookmakersList();
+    updateTotalArbitrage();
+    updateOddsList();
+});
+
 
     function updateBookmakersList() {
         Object.entries(bookmakersData).forEach(([bookmaker, data]) => {
