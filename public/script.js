@@ -14,19 +14,18 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // 🔎 Vérifie si l'utilisateur est tout en haut de la liste
-        const isAtTop = window.scrollY === 0;
+        let shouldAutoScroll = Math.abs(oddsContainer.scrollHeight - oddsContainer.scrollTop - oddsContainer.clientHeight) < 50;
 
         oddsData.forEach(({ event, arbitrage }) => {
             if (!arbitrage || arbitrage.bets.length === 0) return;
 
-            // 🔎 Vérifie si l'événement existe déjà dans la liste (évite les doublons)
+            // Vérifie si l'événement existe déjà
             const existingEvent = [...oddsContainer.children].find(card =>
                 card.dataset.eventId === `${event.home_team}-${event.away_team}`
             );
 
             if (!existingEvent) {
-                // 🆕 Crée une nouvelle carte pour le pari
+                // Création d'une carte pour l'événement
                 const eventCard = document.createElement("div");
                 eventCard.classList.add("odds-card");
                 eventCard.dataset.eventId = `${event.home_team}-${event.away_team}`;
@@ -34,19 +33,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 eventCard.innerHTML = `
                     <h2>${event.home_team} vs ${event.away_team}</h2>
                     ${arbitrage.bets.map(bet => `
-                        <p>🏦 ${bet.bookmaker} - <strong>${bet.team}</strong> | Cote : ${bet.odds}</p>
+                        <p>🏦 ${bet.bookmaker || "Inconnu"} - <strong>${bet.team}</strong> | Cote : ${bet.odds || "N/A"}</p>
                     `).join("")}
                     <p class="profit">💰 Profit potentiel: ${arbitrage.percentage}%</p>
                 `;
 
-                // 🔥 Ajoute la nouvelle carte **en haut**
-                oddsContainer.prepend(eventCard);
+                // Ajoute l'événement **en bas**
+                oddsContainer.appendChild(eventCard);
             }
         });
 
-        // 📌 Si l'utilisateur était tout en haut, on le garde en haut après l'ajout
-        if (isAtTop) {
-            window.scrollTo({ top: 0, behavior: "smooth" });
+        // Auto-scroll en bas si l'utilisateur était déjà en bas
+        if (shouldAutoScroll) {
+            oddsContainer.scrollTop = oddsContainer.scrollHeight;
         }
     });
 });
