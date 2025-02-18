@@ -8,31 +8,37 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("📡 Données reçues depuis WebSocket :", oddsData);
 
         if (!oddsData || oddsData.length === 0) {
-            oddsContainer.innerHTML = "<p>Aucune opportunité détectée pour l'instant.</p>";
+            if (oddsContainer.children.length === 0) {
+                oddsContainer.innerHTML = "<p>Aucune opportunité détectée pour l'instant.</p>";
+            }
             return;
         }
 
-        oddsContainer.innerHTML = ""; // Efface les anciennes données
-
         oddsData.forEach(({ event, arbitrage }) => {
-            if (!arbitrage || arbitrage.bets.length === 0) return; // Vérification de sécurité
+            if (!arbitrage || arbitrage.bets.length === 0) return;
 
-            const eventCard = document.createElement("div");
-            eventCard.classList.add("odds-card");
+            // 🔎 Vérifie si l'événement existe déjà dans la liste (évite les doublons)
+            const existingEvent = [...oddsContainer.children].find(card =>
+                card.dataset.eventId === `${event.home_team}-${event.away_team}`
+            );
 
-            eventCard.innerHTML = `
-                <h2>${event.home_team} vs ${event.away_team}</h2>
-                ${arbitrage.bets.map(bet => `
-                    <p>🏦 ${bet.bookmaker} - <strong>${bet.team}</strong> | Cote : ${bet.odds}</p>
-                `).join("")}
-                <p class="profit">💰 Profit potentiel: ${arbitrage.percentage}%</p>
-            `;
+            if (!existingEvent) {
+                // 🆕 Crée une nouvelle carte pour le pari
+                const eventCard = document.createElement("div");
+                eventCard.classList.add("odds-card");
+                eventCard.dataset.eventId = `${event.home_team}-${event.away_team}`; // Ajoute un identifiant unique
 
-            oddsContainer.appendChild(eventCard);
+                eventCard.innerHTML = `
+                    <h2>${event.home_team} vs ${event.away_team}</h2>
+                    ${arbitrage.bets.map(bet => `
+                        <p>🏦 ${bet.bookmaker} - <strong>${bet.team}</strong> | Cote : ${bet.odds}</p>
+                    `).join("")}
+                    <p class="profit">💰 Profit potentiel: ${arbitrage.percentage}%</p>
+                `;
+
+                // 🔥 Ajoute la nouvelle carte **en haut**
+                oddsContainer.prepend(eventCard);
+            }
         });
-
-        if (oddsContainer.innerHTML === "") {
-            oddsContainer.innerHTML = "<p>Aucune opportunité rentable détectée.</p>";
-        }
     });
 });
