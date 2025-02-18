@@ -234,15 +234,22 @@ function calculateArbitrage(event) {
     if (!event?.bookmakers?.length) return null;
     let bestOdds = {};
 
-    for (const bookmaker of event.bookmakers) {
-        for (const market of bookmaker.markets || []) {
-            for (const outcome of market.outcomes) {
-                if (!bestOdds[outcome.name] || outcome.price > bestOdds[outcome.name].odds) {
-                    bestOdds[outcome.name] = { odds: outcome.price, bookmaker: bookmaker.title };
-                }
-            }
-        }
-    }
+    let bestOdds = {};
+
+	for (const bookmaker of event.bookmakers) {
+		for (const market of bookmaker.markets || []) {
+			for (const outcome of market.outcomes) {
+				if (!bestOdds[outcome.name] || outcome.price > bestOdds[outcome.name].odds) {
+					bestOdds[outcome.name] = { 
+						team: outcome.name, // Ajout du nom de l'équipe
+						odds: outcome.price, 
+						bookmaker: bookmaker.title 
+					};
+				}
+			}
+		}
+	}
+
 
     let sum = Object.values(bestOdds).reduce((acc, bet) => acc + (1 / bet.odds), 0);
     if (sum < 1) {
