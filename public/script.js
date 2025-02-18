@@ -21,7 +21,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Ajoute les nouvelles cotes à la liste globale
         oddsData.forEach(({ event, arbitrage }) => {
             if (!arbitrage || arbitrage.bets.length === 0) return;
 
@@ -37,27 +36,31 @@ document.addEventListener("DOMContentLoaded", () => {
                     bookmakersData[bet.bookmaker].totalROI += arbitrage.percentage;
                     bookmakersData[bet.bookmaker].bets.push({ event, bet, arbitrage });
                 });
-
-                updateBookmakersList();
-                updateTotalArbitrage();
-                updateOddsList();
             }
         });
+        updateBookmakersList();
+        updateTotalArbitrage();
+        updateOddsList();
     });
 
     function updateBookmakersList() {
-        bookmakersList.innerHTML = "";
-
         Object.entries(bookmakersData).forEach(([bookmaker, data]) => {
-            const listItem = document.createElement("li");
-            listItem.innerHTML = `
-                <strong>${bookmaker}</strong> 
-                (<span class="bet-count">${data.count}</span> paris) - 
-                ROI Moyen : <span class="roi">${(data.totalROI / data.count).toFixed(2)}%</span>
-                <button onclick="toggleBookmakerBets('${bookmaker}')">Voir les paris</button>
-                <ul id="bookmaker-bets-${bookmaker}" class="bookmaker-bets" style="display: none;"></ul>
-            `;
-            bookmakersList.appendChild(listItem);
+            let listItem = document.getElementById(`bookmaker-${bookmaker}`);
+            if (!listItem) {
+                listItem = document.createElement("li");
+                listItem.id = `bookmaker-${bookmaker}`;
+                listItem.innerHTML = `
+                    <strong>${bookmaker}</strong> 
+                    (<span class="bet-count">${data.count}</span> paris) - 
+                    ROI Moyen : <span class="roi">${(data.totalROI / data.count).toFixed(2)}%</span>
+                    <button onclick="toggleBookmakerBets('${bookmaker}')">Voir les paris</button>
+                    <ul id="bookmaker-bets-${bookmaker}" class="bookmaker-bets" style="display: none;"></ul>
+                `;
+                bookmakersList.appendChild(listItem);
+            } else {
+                listItem.querySelector(".bet-count").textContent = data.count;
+                listItem.querySelector(".roi").textContent = `${(data.totalROI / data.count).toFixed(2)}%`;
+            }
         });
     }
 
@@ -66,18 +69,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function updateOddsList() {
-        oddsContainer.innerHTML = "";
         allOdds.forEach(({ event, arbitrage }) => {
-            const eventCard = document.createElement("div");
-            eventCard.classList.add("odds-card");
-            eventCard.innerHTML = `
-                <h2>${event.home_team} vs ${event.away_team}</h2>
-                ${arbitrage.bets.map(bet => `
-                    <p>🏦 ${bet.bookmaker} - <strong>${bet.team}</strong> | Cote : ${bet.odds}</p>
-                `).join("")}
-                <p class="profit">💰 Profit potentiel: ${arbitrage.percentage}%</p>
-            `;
-            oddsContainer.appendChild(eventCard);
+            let eventCard = document.getElementById(`event-${event.home_team}-${event.away_team}`);
+            if (!eventCard) {
+                eventCard = document.createElement("div");
+                eventCard.classList.add("odds-card");
+                eventCard.id = `event-${event.home_team}-${event.away_team}`;
+                eventCard.innerHTML = `
+                    <h2>${event.home_team} vs ${event.away_team}</h2>
+                    ${arbitrage.bets.map(bet => `
+                        <p>🏦 ${bet.bookmaker} - <strong>${bet.team}</strong> | Cote : ${bet.odds}</p>
+                    `).join("")}
+                    <p class="profit">💰 Profit potentiel: ${arbitrage.percentage}%</p>
+                `;
+                oddsContainer.appendChild(eventCard);
+            }
         });
     }
 
