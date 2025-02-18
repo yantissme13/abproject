@@ -24,13 +24,14 @@ app.use(express.json());
 app.use(express.static("public"));
 app.use((req, res, next) => {
     res.setHeader("Content-Security-Policy", 
-        "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-        "connect-src 'self' ws://localhost:3001 http://localhost:3001; " +
-        "style-src 'self' 'unsafe-inline';"
+        "default-src *; " +
+        "script-src * 'unsafe-inline' 'unsafe-eval'; " +
+        "connect-src * ws://abproject-production.up.railway.app wss://abproject-production.up.railway.app; " +
+        "style-src * 'unsafe-inline';"
     );
     next();
 });
+
 let latestOdds = []; // Stocke les dernières cotes globalement
 
 
@@ -246,7 +247,7 @@ const http = require('http');
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "https://abproject-production.up.railway.app/", // Autorise les connexions WebSocket depuis le client
+        origin: "https://abproject-production.up.railway.app", // Autorise les connexions WebSocket depuis le client
         methods: ["GET", "POST"]
     }
 });
@@ -261,7 +262,6 @@ socket.emit("latest_odds", latestOdds);
 
 const PORT = process.env.PORT || 3001;
 
-// Écoute du serveur sur le port 3000
 server.listen(PORT, () => {
-    console.log(`✅ Serveur lancé sur http://localhost:${PORT}`);
+    console.log(`✅ Serveur lancé sur le port ${PORT}`);
 });
