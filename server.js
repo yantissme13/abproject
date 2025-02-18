@@ -224,15 +224,11 @@ async function processOdds(sport, market, odds) {
             );
         }
     }
-} // <-- Cette accolade ferme bien la fonction
 
-
-    // Met à jour la variable globale
     latestOdds = arbitrageOpportunities;
-
-    // Émet les nouvelles données via WebSocket
     io.emit("latest_odds", latestOdds);
 }
+
 
 
 
