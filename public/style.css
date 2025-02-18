@@ -5,8 +5,9 @@ body {
     padding: 0;
     display: flex;
     justify-content: center;
-    align-items: center;
-    height: 100vh;
+    align-items: flex-start;
+    min-height: 100vh; /* Permet d’étendre la hauteur de la page */
+    overflow-y: auto; /* Active le scroll sur toute la page */
 }
 
 .container {
@@ -19,29 +20,32 @@ body {
     text-align: center;
 }
 
-h1 {
-    color: #333;
+#odds-container {
+    width: 100%;
+    max-height: none; /* On enlève la limite de hauteur */
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 20px; /* Pour un meilleur effet visuel */
 }
 
 .odds-card {
     background: #fff;
-    margin: 10px 0;
     padding: 15px;
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     text-align: left;
+    animation: fadeIn 0.5s ease-in-out; /* Ajout d'une animation */
 }
 
-.odds-card h2 {
-    margin: 0 0 10px;
-    color: #007BFF;
-}
-
-.odds-card p {
-    margin: 5px 0;
-}
-
-.odds-card .profit {
-    font-weight: bold;
-    color: green;
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }

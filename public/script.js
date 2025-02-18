@@ -19,11 +19,8 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // 🛑 Vérification de sécurité : oddsContainer doit exister
-        if (!oddsContainer) return;
-
-        // Vérifie si l'utilisateur est en bas de la liste avant d'ajouter de nouveaux paris
-        let shouldAutoScroll = oddsContainer.scrollTop + oddsContainer.clientHeight >= oddsContainer.scrollHeight - 50;
+        // Vérifie si l'utilisateur est déjà en bas
+        let isAtBottom = oddsContainer.scrollTop + oddsContainer.clientHeight >= oddsContainer.scrollHeight - 50;
 
         oddsData.forEach(({ event, arbitrage }) => {
             if (!arbitrage || arbitrage.bets.length === 0) return;
@@ -52,8 +49,11 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
-        // Auto-scroll en bas si l'utilisateur était déjà en bas avant l'ajout
-        if (shouldAutoScroll) {
+        // 📌 Ajuste la hauteur du conteneur pour permettre le scroll dynamique
+        oddsContainer.style.height = "auto";
+
+        // Auto-scroll en bas seulement si l'utilisateur était déjà en bas avant l'ajout
+        if (isAtBottom) {
             oddsContainer.scrollTop = oddsContainer.scrollHeight;
         }
     });
