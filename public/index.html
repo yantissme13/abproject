@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arbitrage en Temps Réel</title>
-    <!-- Mise à jour de la CSP pour autoriser les styles depuis self et gstatic.com -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; 
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.socket.io; 
     style-src 'self' https://www.gstatic.com;">
@@ -13,11 +12,40 @@
 <body>
     <div class="container">
         <h1>Opportunités d'Arbitrage</h1>
-        <div id="odds-container">
-            <p>Chargement des données...</p>
+        
+        <!-- ✅ Onglets de navigation -->
+        <div class="tabs">
+            <button class="tab-button" onclick="showTab('tab-arbitrage')">Opportunités</button>
+            <button class="tab-button" onclick="showTab('tab-bookmakers')">Bookmakers</button>
+        </div>
+
+        <!-- ✅ Onglet Opportunités d'Arbitrage -->
+        <div id="tab-arbitrage" class="tab-content">
+            <p><strong>Total d'opportunités :</strong> <span id="total-arbitrage">0</span></p>
+            <h2>Opportunités en cours</h2>
+            <div id="odds-container">
+                <p>Chargement des données...</p>
+            </div>
+        </div>
+
+        <!-- ✅ Onglet Bookmakers avec liste interactive -->
+        <div id="tab-bookmakers" class="tab-content" style="display: none;">
+            <h2>Liste des Bookmakers</h2>
+            <ul id="bookmakers-list">
+                <li>Aucun bookmaker détecté</li>
+            </ul>
         </div>
     </div>
 
+    <script>
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            document.getElementById(tabId).style.display = 'block';
+        }
+    </script>
+    
     <script src="https://cdn.socket.io/4.5.1/socket.io.min.js" crossorigin="anonymous"></script>
     <script src="script.js"></script>
 </body>
