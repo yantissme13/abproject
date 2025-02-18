@@ -77,32 +77,33 @@ const sendTelegramAlert = async (match, arbitrage) => {
         message += `🏦 ${bet.bookmaker} - ${bet.team} | Cote : ${bet.odds} | Mise : ${stake.toFixed(2)}€\n`;
     });
 
-    let retries = 0;
     const maxRetries = 5; // Nombre de tentatives avant d'abandonner
     const baseDelay = 3000; // 3 secondes entre chaque retry
 
-    while (retries < maxRetries) {
-        try {
-            await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                chat_id: TELEGRAM_CHAT_ID,
-                text: message,
-            });
-            console.log(`✅ Notification envoyée à Telegram après ${retries} tentatives.`);
-            break; // Succès, on sort de la boucle
-        } catch (error) {
-            if (error.response && error.response.status === 429) {
-                // Trop de requêtes, on attend avant de réessayer
-                let waitTime = (error.response.headers["retry-after"] || (baseDelay * (retries + 1))) * 1000;
-                console.warn(`⚠️ Telegram Rate Limit atteint. Réessai dans ${waitTime / 1000} secondes...`);
-                await new Promise(resolve => setTimeout(resolve, waitTime));
-                retries++;
-            } else {
-                console.error("🔴 Erreur lors de l'envoi de l'alerte Telegram :", error.message);
-                break; // Si ce n'est pas une erreur 429, on arrête les tentatives
+    // Exécuter l'envoi dans un setTimeout pour éviter de bloquer le traitement des autres opportunités
+    setTimeout(async () => {
+        for (let retries = 0; retries < maxRetries; retries++) {
+            try {
+                await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    chat_id: TELEGRAM_CHAT_ID,
+                    text: message,
+                });
+                console.log(`✅ Notification envoyée à Telegram après ${retries} tentative(s).`);
+                return;
+            } catch (error) {
+                if (error.response && error.response.status === 429) {
+                    let waitTime = (error.response.headers["retry-after"] || (baseDelay * (retries + 1))) * 1000;
+                    console.warn(`⚠️ Telegram Rate Limit atteint. Réessai dans ${waitTime / 1000} secondes...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime)); // Correcte l'attente
+                } else {
+                    console.error("🔴 Erreur lors de l'envoi de l'alerte Telegram :", error.message);
+                    return;
+                }
             }
         }
-    }
+    }, 0); // Lancer immédiatement en asynchrone
 };
+
 
 
 // 📌 Fonction principale pour récupérer les cotes et stocker en base
@@ -254,7 +255,7 @@ function calculateArbitrage(event) {
 }
 
 fetchOdds();
-setInterval(fetchOdds, 300000);
+setInterval(fetchOdds, 30000);
 
 // 🔹 Démarre le serveur HTTP + WebSocket
 const http = require('http');
