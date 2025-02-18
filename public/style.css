@@ -1,51 +1,137 @@
+/* 🌟 Styles généraux */
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f4f4f4;
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
     margin: 0;
     padding: 0;
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    min-height: 100vh; /* Permet d’étendre la hauteur de la page */
-    overflow-y: auto; /* Active le scroll sur toute la page */
+    min-height: 100vh;
+    color: #fff;
 }
 
 .container {
-    background: white;
+    background: rgba(255, 255, 255, 0.1);
     padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    border-radius: 15px;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
     width: 90%;
-    max-width: 600px;
+    max-width: 800px;
     text-align: center;
+    backdrop-filter: blur(10px);
 }
 
-#odds-container {
-    width: 100%;
-    max-height: none; /* On enlève la limite de hauteur */
-    overflow-y: auto;
+h1 {
+    font-size: 2em;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+}
+
+/* 🌟 Onglets de navigation */
+.tabs {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-bottom: 20px; /* Pour un meilleur effet visuel */
+    justify-content: center;
+    margin-bottom: 20px;
 }
 
-.odds-card {
-    background: #fff;
-    padding: 15px;
+.tab-button {
+    background: #ffcc00;
+    border: none;
+    padding: 10px 20px;
+    margin: 5px;
+    font-size: 1em;
     border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.tab-button:hover {
+    background: #ff9900;
+}
+
+/* 🌟 Cartes d'opportunités d'arbitrage */
+.odds-card {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 15px;
+    border-radius: 10px;
+    margin: 10px 0;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.2);
     text-align: left;
-    animation: fadeIn 0.5s ease-in-out; /* Ajout d'une animation */
+    position: relative;
+    animation: fadeIn 0.5s ease-in-out;
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.profit {
+    font-weight: bold;
+    color: #ffcc00;
+}
+
+/* 🌟 Liste des bookmakers */
+#bookmakers-list {
+    list-style: none;
+    padding: 0;
+}
+
+#bookmakers-list li {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: 0.3s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#bookmakers-list li:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* 🌟 Boutons des bookmakers */
+button {
+    background: #ffcc00;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:hover {
+    background: #ff9900;
+}
+
+/* 🌟 Liste des paris d’un bookmaker */
+.bookmaker-bets {
+    display: none;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+.bookmaker-bets li {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 8px;
+    border-radius: 5px;
+    margin: 5px 0;
+}
+
+/* 🌟 Responsive */
+@media (max-width: 600px) {
+    .container {
+        width: 95%;
     }
-    to {
-        opacity: 1;
-        transform: translateY(0);
+    .tab-button {
+        font-size: 0.9em;
+        padding: 8px 15px;
     }
 }

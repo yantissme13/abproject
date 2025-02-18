@@ -231,15 +231,33 @@ function calculateArbitrage(event) {
     if (!event?.bookmakers?.length) return null;
     let bestOdds = {};
 
+    function calculateArbitrage(event) {
+    let bestOdds = {};
+
     for (const bookmaker of event.bookmakers) {
         for (const market of bookmaker.markets || []) {
             for (const outcome of market.outcomes) {
-                if (!bestOdds[outcome.name] || outcome.price > bestOdds[outcome.name].odds) {
-                    bestOdds[outcome.name] = { odds: outcome.price, bookmaker: bookmaker.title };
+                let teamName = outcome.name.trim(); // Nettoie le nom de l'équipe
+
+                // 🔹 Correction : attribuer les cotes aux bonnes équipes
+                if (event.home_team && teamName.includes(event.home_team)) {
+                    teamName = event.home_team;
+                } else if (event.away_team && teamName.includes(event.away_team)) {
+                    teamName = event.away_team;
+                }
+
+                if (!bestOdds[teamName] || outcome.price > bestOdds[teamName].odds) {
+                    bestOdds[teamName] = { odds: outcome.price, bookmaker: bookmaker.title };
                 }
             }
         }
     }
+
+    console.log("📌 Cotes attribuées aux équipes :", JSON.stringify(bestOdds, null, 2)); // Debug
+
+    return bestOdds;
+}
+
 
     let sum = Object.values(bestOdds).reduce((acc, bet) => acc + (1 / bet.odds), 0);
     if (sum < 1) {
