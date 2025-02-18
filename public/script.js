@@ -2,6 +2,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const socket = io("https://abproject-production.up.railway.app");
     const oddsContainer = document.getElementById("odds-container");
 
+    if (!oddsContainer) {
+        console.error("❌ Erreur : Impossible de trouver #odds-container !");
+        return;
+    }
+
     console.log("🟢 Connecté au WebSocket !");
 
     socket.on("latest_odds", (oddsData) => {
@@ -14,7 +19,11 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        let shouldAutoScroll = Math.abs(oddsContainer.scrollHeight - oddsContainer.scrollTop - oddsContainer.clientHeight) < 50;
+        // 🛑 Vérification de sécurité : oddsContainer doit exister
+        if (!oddsContainer) return;
+
+        // Vérifie si l'utilisateur est en bas de la liste avant d'ajouter de nouveaux paris
+        let shouldAutoScroll = oddsContainer.scrollTop + oddsContainer.clientHeight >= oddsContainer.scrollHeight - 50;
 
         oddsData.forEach(({ event, arbitrage }) => {
             if (!arbitrage || arbitrage.bets.length === 0) return;
@@ -43,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
-        // Auto-scroll en bas si l'utilisateur était déjà en bas
+        // Auto-scroll en bas si l'utilisateur était déjà en bas avant l'ajout
         if (shouldAutoScroll) {
             oddsContainer.scrollTop = oddsContainer.scrollHeight;
         }
