@@ -3,68 +3,70 @@ document.addEventListener("DOMContentLoaded", () => {
     const oddsContainer = document.getElementById("odds-container");
     const totalArbitrage = document.getElementById("total-arbitrage");
     const bookmakersList = document.getElementById("bookmakers-list");
-    const selectedBookmaker = document.getElementById("selected-bookmaker");
-    const bookmakerOdds = document.getElementById("bookmaker-odds");
-
-    let allOdds = []; // Stocke tous les paris en cours
-    let bookmakersData = {}; // Stocke les statistiques par bookmaker
+    
+    let allOdds = []; // Stocke toutes les opportunités d'arbitrage
+    let bookmakersData = {}; // Stocke les stats par bookmaker
+    const MAX_DISPLAY = 20000; // Nombre max d'opportunités affichées
 
     console.log("🟢 Connecté au WebSocket !");
 
     socket.on("latest_odds", (oddsData) => {
-    console.log("📡 Données reçues depuis WebSocket :", oddsData);
-
-    if (!oddsData || oddsData.length === 0) {
-        oddsContainer.innerHTML = "<p>Aucune opportunité détectée pour l'instant.</p>";
-        return;
-    }
-
-    // 🔄 Fusionne les nouvelles opportunités avec celles déjà affichées
-    oddsData.forEach(({ event, arbitrage }) => {
-        const eventId = `${event.home_team}-${event.away_team}`;
-
-        // Vérifie si l'événement est déjà affiché, si oui, on met à jour
-        const existingIndex = allOdds.findIndex(odds => odds.eventId === eventId);
-        if (existingIndex !== -1) {
-            allOdds[existingIndex] = { eventId, event, arbitrage }; // Met à jour si existant
-        } else {
-            allOdds.push({ eventId, event, arbitrage }); // Ajoute sinon
+        console.log("📡 Données reçues depuis WebSocket :", oddsData);
+        
+        if (!oddsData || oddsData.length === 0) {
+            oddsContainer.innerHTML = "<p>Aucune opportunité détectée pour l'instant.</p>";
+            return;
         }
 
-        arbitrage.bets.forEach(bet => {
-            if (!bookmakersData[bet.bookmaker]) {
-                bookmakersData[bet.bookmaker] = { count: 0, totalROI: 0, bets: [] };
+        // Vider les anciennes données
+        allOdds = [];
+        bookmakersData = {};
+
+        // Stocker toutes les opportunités
+        oddsData.forEach(({ event, arbitrage }) => {
+            if (!arbitrage || arbitrage.bets.length === 0) return;
+
+            const eventId = `${event.home_team}-${event.away_team}`;
+            let existingEvent = allOdds.find(odds => odds.eventId === eventId);
+            
+            if (existingEvent) {
+                existingEvent.arbitrages.push(arbitrage);
+            } else {
+                allOdds.push({ eventId, event, arbitrages: [arbitrage] });
             }
-            bookmakersData[bet.bookmaker].count++;
-            bookmakersData[bet.bookmaker].totalROI += arbitrage.percentage;
-            bookmakersData[bet.bookmaker].bets.push({ event, bet, arbitrage });
+
+            arbitrage.bets.forEach(bet => {
+                if (!bookmakersData[bet.bookmaker]) {
+                    bookmakersData[bet.bookmaker] = { count: 0, totalROI: 0, bets: [] };
+                }
+                bookmakersData[bet.bookmaker].count++;
+                bookmakersData[bet.bookmaker].totalROI += arbitrage.percentage;
+                bookmakersData[bet.bookmaker].bets.push({ event, bet, arbitrage });
+            });
         });
+
+        // Limiter l'affichage aux MAX_DISPLAY derniers paris
+        if (allOdds.length > MAX_DISPLAY) {
+            allOdds = allOdds.slice(-MAX_DISPLAY);
+        }
+        
+        updateBookmakersList();
+        updateTotalArbitrage();
+        updateOddsList();
     });
 
-    updateBookmakersList();
-    updateTotalArbitrage();
-    updateOddsList();
-});
-
-
     function updateBookmakersList() {
+        bookmakersList.innerHTML = "";
         Object.entries(bookmakersData).forEach(([bookmaker, data]) => {
-            let listItem = document.getElementById(`bookmaker-${bookmaker}`);
-            if (!listItem) {
-                listItem = document.createElement("li");
-                listItem.id = `bookmaker-${bookmaker}`;
-                listItem.innerHTML = `
-                    <strong>${bookmaker}</strong> 
-                    (<span class="bet-count">${data.count}</span> paris) - 
-                    ROI Moyen : <span class="roi">${(data.totalROI / data.count).toFixed(2)}%</span>
-                    <button onclick="toggleBookmakerBets('${bookmaker}')">Voir les paris</button>
-                    <ul id="bookmaker-bets-${bookmaker}" class="bookmaker-bets" style="display: none;"></ul>
-                `;
-                bookmakersList.appendChild(listItem);
-            } else {
-                listItem.querySelector(".bet-count").textContent = data.count;
-                listItem.querySelector(".roi").textContent = `${(data.totalROI / data.count).toFixed(2)}%`;
-            }
+            let listItem = document.createElement("li");
+            listItem.innerHTML = `
+                <strong>${bookmaker}</strong> 
+                (<span class="bet-count">${data.count}</span> paris) - 
+                ROI Moyen : <span class="roi">${(data.totalROI / data.count).toFixed(2)}%</span>
+                <button onclick="toggleBookmakerBets('${bookmaker}')">Voir les paris</button>
+                <ul id="bookmaker-bets-${bookmaker}" class="bookmaker-bets" style="display: none;"></ul>
+            `;
+            bookmakersList.appendChild(listItem);
         });
     }
 
@@ -73,22 +75,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function updateOddsList() {
-        allOdds.forEach(({ event, arbitrage }) => {
-            let eventCard = document.getElementById(`event-${event.home_team}-${event.away_team}`);
-            if (!eventCard) {
-                eventCard = document.createElement("div");
-                eventCard.classList.add("odds-card");
-                eventCard.id = `event-${event.home_team}-${event.away_team}`;
-                eventCard.innerHTML = `
-                    <h2>${event.home_team} vs ${event.away_team}</h2>
+        oddsContainer.innerHTML = "";
+        let fragment = document.createDocumentFragment();
+        
+        allOdds.forEach(({ event, arbitrages }) => {
+            let eventCard = document.createElement("div");
+            eventCard.classList.add("odds-card");
+            eventCard.innerHTML = `
+                <h2>${event.home_team} vs ${event.away_team}</h2>
+                ${arbitrages.map(arbitrage => `
                     ${arbitrage.bets.map(bet => `
                         <p>🏦 ${bet.bookmaker} - <strong>${bet.team}</strong> | Cote : ${bet.odds}</p>
                     `).join("")}
                     <p class="profit">💰 Profit potentiel: ${arbitrage.percentage}%</p>
-                `;
-                oddsContainer.appendChild(eventCard);
-            }
+                `).join("")}
+            `;
+            fragment.appendChild(eventCard);
         });
+        oddsContainer.appendChild(fragment);
     }
 
     window.toggleBookmakerBets = function (bookmaker) {
