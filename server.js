@@ -234,8 +234,6 @@ function calculateArbitrage(event) {
     if (!event?.bookmakers?.length) return null;
     let bestOdds = {};
 
-    let bestOdds = {};
-
 	for (const bookmaker of event.bookmakers) {
 		for (const market of bookmaker.markets || []) {
 			for (const outcome of market.outcomes) {
