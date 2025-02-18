@@ -247,7 +247,7 @@ const http = require('http');
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "https://abproject-production.up.railway.app", // Autorise les connexions WebSocket depuis le client
+        origin: "https://abproject-production.up.railway.app/", // Autorise les connexions WebSocket depuis le client
         methods: ["GET", "POST"]
     }
 });
