@@ -14,6 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        // 🔎 Vérifie si l'utilisateur est tout en haut de la liste
+        const isAtTop = window.scrollY === 0;
+
         oddsData.forEach(({ event, arbitrage }) => {
             if (!arbitrage || arbitrage.bets.length === 0) return;
 
@@ -26,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 // 🆕 Crée une nouvelle carte pour le pari
                 const eventCard = document.createElement("div");
                 eventCard.classList.add("odds-card");
-                eventCard.dataset.eventId = `${event.home_team}-${event.away_team}`; // Ajoute un identifiant unique
+                eventCard.dataset.eventId = `${event.home_team}-${event.away_team}`;
 
                 eventCard.innerHTML = `
                     <h2>${event.home_team} vs ${event.away_team}</h2>
@@ -40,5 +43,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 oddsContainer.prepend(eventCard);
             }
         });
+
+        // 📌 Si l'utilisateur était tout en haut, on le garde en haut après l'ajout
+        if (isAtTop) {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
     });
 });
