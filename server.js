@@ -165,15 +165,14 @@ async function processOdds(sport, market, odds) {
     let arbitrageOpportunities = [];
 
     for (const event of odds) {
-        const eventDate = new Date(event.start_time);
-        const endDate = event.end_time ? new Date(event.end_time) : null;
+        const eventDate = new Date(event.commence_time);
         const now = new Date();
 
         const today = now.toISOString().split("T")[0];
-        const eventEndDate = endDate ? endDate.toISOString().split("T")[0] : today;
+        const eventDay = eventDate.toISOString().split("T")[0];
 
-        if (eventEndDate !== today) {
-            console.log("🚫 Événement ignoré (se termine après aujourd’hui) :", eventEndDate);
+        if (eventDay !== today) {
+            console.log("🚫 Événement ignoré (ne commence pas aujourd’hui) :", event.commence_time);
             continue;
         }
 
@@ -228,9 +227,6 @@ async function processOdds(sport, market, odds) {
     latestOdds = arbitrageOpportunities;
     io.emit("latest_odds", latestOdds);
 }
-
-
-
 
 
 function calculateArbitrage(event) {
