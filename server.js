@@ -165,17 +165,28 @@ async function processOdds(sport, market, odds) {
     let arbitrageOpportunities = [];
 
     for (const event of odds) {
+        const eventDate = new Date(event.start_time);
+        const endDate = event.end_time ? new Date(event.end_time) : null;
+        const now = new Date();
+
+        const today = now.toISOString().split("T")[0];
+        const eventEndDate = endDate ? endDate.toISOString().split("T")[0] : today;
+
+        if (eventEndDate !== today) {
+            console.log("🚫 Événement ignoré (se termine après aujourd’hui) :", eventEndDate);
+            continue;
+        }
+
         const arbitrage = calculateArbitrage(event);
 
         if (arbitrage && 
-			arbitrage.percentage > 1 && 
-			arbitrage.percentage <= 300 &&
-			arbitrage.bets.length >= 2 &&
-			new Set(arbitrage.bets.map(bet => bet.bookmaker)).size >= 2) { 
-			
+            arbitrage.percentage > 1 && 
+            arbitrage.percentage <= 300 &&
+            arbitrage.bets.length >= 2 &&
+            new Set(arbitrage.bets.map(bet => bet.bookmaker)).size >= 2) { 
+            
             console.log(`💰 Opportunité trouvée sur ${sport} (${market}) ! Profit : ${arbitrage.percentage}%`);
 
-            // 📌 Affichage des données avant insertion
             const dataToInsert = {
                 sport: sport,
                 league: event.league || "N/A",
@@ -196,26 +207,25 @@ async function processOdds(sport, market, odds) {
             console.log("📌 Tentative d'insertion de données MongoDB :", dataToInsert);
 
             arbitrageOpportunities.push({
-				sport, market, event, arbitrage
-			});
+                sport, market, event, arbitrage
+            });
 
-			// 📢 Envoie immédiatement les données aux WebSockets AVANT d'attendre MongoDB ou Telegram
-			io.emit("latest_odds", arbitrageOpportunities);
+            io.emit("latest_odds", arbitrageOpportunities);
 
-			try {
-				const insertedData = await Odds.create(dataToInsert);
-				console.log("✅ Insertion réussie :", insertedData);
-			} catch (error) {
-				console.error("❌ Erreur lors de l'insertion MongoDB :", error);
-			}
+            try {
+                const insertedData = await Odds.create(dataToInsert);
+                console.log("✅ Insertion réussie :", insertedData);
+            } catch (error) {
+                console.error("❌ Erreur lors de l'insertion MongoDB :", error);
+            }
 
-			// ⏳ Ensuite, envoie l'alerte Telegram SANS bloquer l'affichage sur le site
-			sendTelegramAlert(event, arbitrage).catch(err => 
-				console.error("❌ Erreur envoi Telegram :", err)
-			);
-
+            sendTelegramAlert(event, arbitrage).catch(err => 
+                console.error("❌ Erreur envoi Telegram :", err)
+            );
         }
     }
+}
+
 
     // Met à jour la variable globale
     latestOdds = arbitrageOpportunities;
