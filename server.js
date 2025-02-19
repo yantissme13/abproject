@@ -104,12 +104,25 @@ const sendTelegramAlert = async (match, arbitrage) => {
     }, 0); // Lancer immédiatement en asynchrone
 };
 
+const ARBITRAGE_EXPIRATION_TIME = 300000; // Supprime les arbitrages après 5 minutes
+
+function removeObsoleteArbitrages() {
+    const now = Date.now();
+    latestOdds = latestOdds.filter(arbitrage => now - arbitrage.timestamp < ARBITRAGE_EXPIRATION_TIME);
+    io.emit("latest_odds", latestOdds);
+    console.log("🗑️ Suppression des arbitrages obsolètes");
+}
+
+// 📌 Vérification toutes les 30 secondes
+setInterval(removeObsoleteArbitrages, 30000);
 
 
 // 📌 Fonction principale pour récupérer les cotes et stocker en base
+let lastFetchedOdds = {}; // Stocke les dernières cotes connues
+
 async function fetchOdds() {
     try {
-        console.log("📢 Début de la récupération des cotes...");
+        console.log("📢 Vérification des nouvelles cotes...");
         let sports = await client.get('sports_list');
         if (!sports) {
             const sportsResponse = await axios.get(`${API_BASE_URL}/sports`, { params: { apiKey: API_KEY } });
@@ -118,15 +131,13 @@ async function fetchOdds() {
         } else {
             sports = JSON.parse(sports);
         }
-        
+
         const now = new Date();
         const commenceTimeFrom = now.toISOString().split('.')[0] + "Z";
         const markets = ['h2h', 'totals', 'spreads'];
 
         for (const sport of sports) {
             for (const market of markets) {
-                let lastOdds = await client.get(`odds_${sport}_${market}`);
-
                 try {
                     const response = await axios.get(`${API_BASE_URL}/sports/${sport}/odds`, {
                         params: {
@@ -138,22 +149,53 @@ async function fetchOdds() {
                         }
                     });
 
-                    if (JSON.stringify(response.data) !== lastOdds) {
-                        await client.setEx(`odds_${sport}_${market}`, 60, JSON.stringify(response.data));
-                        console.log(`✅ Mise à jour détectée pour ${sport} (${market})`);
-                        await processOdds(sport, market, response.data);
-                    } else {
-                        console.log(`✅ Aucune modification des cotes pour ${sport} (${market}), pas d'appel API.`);
+                    const newOdds = response.data;
+
+                    if (!lastFetchedOdds[sport]) {
+                        lastFetchedOdds[sport] = {};
                     }
+
+                    if (!lastFetchedOdds[sport][market]) {
+                        lastFetchedOdds[sport][market] = {};
+                    }
+
+                    // 📌 Détection des changements de cotes
+                    let hasChanges = false;
+                    newOdds.forEach(event => {
+                        const eventId = event.id;
+                        if (!lastFetchedOdds[sport][market][eventId] || JSON.stringify(lastFetchedOdds[sport][market][eventId]) !== JSON.stringify(event)) {
+                            lastFetchedOdds[sport][market][eventId] = event;
+                            hasChanges = true;
+                        }
+                    });
+
+                    if (hasChanges) {
+                        await client.setEx(`odds_${sport}_${market}`, 60, JSON.stringify(newOdds));
+                        console.log(`✅ Cotes mises à jour pour ${sport} (${market})`);
+                    } else {
+                        console.log(`⏳ Aucune nouvelle cote pour ${sport} (${market})`);
+                    }
+
                 } catch (error) {
-                    console.error(`❌ Erreur sur ${sport} (${market}) :`, error.response?.data?.message || error.message);
+                    console.error(`❌ Erreur lors de la récupération des cotes pour ${sport} (${market}) :`, error.message);
                 }
             }
         }
+		// S'assurer que toutes les cotes (même inchangées) sont envoyées au WebSocket
+		latestOdds = Object.values(lastFetchedOdds).flatMap(sportData =>
+			Object.values(sportData).flatMap(marketData => Object.values(marketData))
+		);
+
+        io.emit("latest_odds", lastFetchedOdds); // Toujours envoyer toutes les cotes connues
+
     } catch (error) {
         console.error("❌ Erreur lors de la récupération des cotes :", error);
     }
 }
+
+// 📌 Exécuter toutes les 30 secondes, mais n’appeler l’API que si nécessaire
+setInterval(fetchOdds, 30000);
+
 
 async function processOdds(sport, market, odds) {
     if (!odds || odds.length === 0) {
