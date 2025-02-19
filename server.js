@@ -9,6 +9,12 @@ const Odds = require('./models/OddsModel');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+    res.setHeader("Content-Security-Policy",
+        "default-src 'self'; style-src 'self' 'unsafe-inline' https://www.gstatic.com;");
+    next();
+});
+
 
 // Connexion à MongoDB
 mongoose.connect(process.env.MONGO_URI)
