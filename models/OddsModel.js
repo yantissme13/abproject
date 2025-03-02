@@ -4,7 +4,7 @@ const OddsSchema = new mongoose.Schema({
     sport: String,
     league: String,
     event: String,
-	commence_time: Date
+	commence_time: Date,
     home_team: String,
     away_team: String,
     bookmaker1: String,
