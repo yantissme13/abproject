@@ -17,7 +17,7 @@ const { Queue } = require('bullmq');
 const { Server } = require("socket.io");
 const saveToDatabase = require('./database');
 const Odds = require('./models/OddsModel');
-
+const sentArbitrages = new Set();
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -228,6 +228,13 @@ async function processOdds(sport, market, odds) {
             new Set(arbitrage.bets.map(bet => bet.bookmaker)).size >= 2) { 
             
             console.log(`💰 Opportunité trouvée sur ${sport} (${market}) ! Profit : ${arbitrage.percentage}%`);
+			
+			const arbitrageKey = `${event.home_team} vs ${event.away_team} - ${arbitrage.bets.map(bet => bet.bookmaker).join(",")}`;
+			if (sentArbitrages.has(arbitrageKey)) {
+				console.log(`⚠️ Déjà envoyé : ${arbitrageKey}, on ignore.`);
+				continue;
+			}
+			sentArbitrages.add(arbitrageKey);
 
             const dataToInsert = {
                 sport: sport,
