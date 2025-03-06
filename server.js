@@ -64,7 +64,7 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 const sendTelegramAlert = async (match, arbitrage) => {
-    const TOTAL_AMOUNT = 18;
+    const TOTAL_AMOUNT = 20;
     let message = `🚀 Opportunité d’arbitrage détectée !\n`;
     message += `📅 Match : ${match.home_team} vs ${match.away_team}\n`;
     message += `🏟️ Compétition : ${match.league || match.sport || "N/A"}\n\n`;
@@ -73,7 +73,7 @@ const sendTelegramAlert = async (match, arbitrage) => {
     let totalProb = arbitrage.bets.reduce((acc, bet) => acc + (1 / bet.odds), 0);
     message += `📊 Bookmakers et mises optimales (sur ${TOTAL_AMOUNT}€) :\n`;
     arbitrage.bets.forEach(bet => {
-        const stake = (TOTAL_AMOUNT / bet.odds) / totalProb;
+        const stake = (TOTAL_AMOUNT * (1 / bet.odds)) / totalProb;
         message += `🏦 ${bet.bookmaker} - ${bet.team} | Cote : ${bet.odds} | Mise : ${stake.toFixed(2)}€\n`;
     });
 
@@ -172,6 +172,8 @@ async function fetchOdds() {
                     if (hasChanges) {
                         await client.setEx(`odds_${sport}_${market}`, 60, JSON.stringify(newOdds));
                         console.log(`✅ Cotes mises à jour pour ${sport} (${market})`);
+						// 🚀 Appel de processOdds() pour détecter les arbitrages
+						await processOdds(sport, market, newOdds);
                     } else {
                         console.log(`⏳ Aucune nouvelle cote pour ${sport} (${market})`);
                     }
