@@ -139,6 +139,14 @@ async function fetchOdds() {
         for (const sport of sports) {
             for (const market of markets) {
                 try {
+                    // 🔥 Vérifier dans Redis avant d'appeler l'API
+                    let cachedOdds = await client.get(`odds_${sport}_${market}`);
+                    if (cachedOdds) {
+                        console.log(`⏳ Cotes récentes trouvées en cache pour ${sport} (${market}), API ignorée.`);
+                        continue; // ✅ Continue sans appeler l’API
+                    }
+
+                    // 📌 Si aucune cote en cache, on fait l’appel API
                     const response = await axios.get(`${API_BASE_URL}/sports/${sport}/odds`, {
                         params: {
                             apiKey: API_KEY,
@@ -151,16 +159,15 @@ async function fetchOdds() {
 
                     const newOdds = response.data;
 
-                    if (!lastFetchedOdds[sport]) {
-                        lastFetchedOdds[sport] = {};
-                    }
-
-                    if (!lastFetchedOdds[sport][market]) {
-                        lastFetchedOdds[sport][market] = {};
-                    }
+                    // ✅ Toujours stocker les cotes en cache, même si elles ne changent pas
+                    await client.setEx(`odds_${sport}_${market}`, 300, JSON.stringify(newOdds)); // 🔥 Cache 5 minutes (300s)
+                    console.log(`✅ Cotes mises en cache pour ${sport} (${market})`);
 
                     // 📌 Détection des changements de cotes
                     let hasChanges = false;
+                    if (!lastFetchedOdds[sport]) lastFetchedOdds[sport] = {};
+                    if (!lastFetchedOdds[sport][market]) lastFetchedOdds[sport][market] = {};
+
                     newOdds.forEach(event => {
                         const eventId = event.id;
                         if (!lastFetchedOdds[sport][market][eventId] || JSON.stringify(lastFetchedOdds[sport][market][eventId]) !== JSON.stringify(event)) {
@@ -170,10 +177,9 @@ async function fetchOdds() {
                     });
 
                     if (hasChanges) {
-                        await client.setEx(`odds_${sport}_${market}`, 60, JSON.stringify(newOdds));
-                        console.log(`✅ Cotes mises à jour pour ${sport} (${market})`);
-						// 🚀 Appel de processOdds() pour détecter les arbitrages
-						await processOdds(sport, market, newOdds);
+                        console.log(`🔄 Cotes mises à jour pour ${sport} (${market})`);
+                        // 🚀 Appel de processOdds() pour détecter les arbitrages
+                        await processOdds(sport, market, newOdds);
                     } else {
                         console.log(`⏳ Aucune nouvelle cote pour ${sport} (${market})`);
                     }
@@ -183,12 +189,13 @@ async function fetchOdds() {
                 }
             }
         }
-		// S'assurer que toutes les cotes (même inchangées) sont envoyées au WebSocket
-		latestOdds = Object.values(lastFetchedOdds).flatMap(sportData =>
-			Object.values(sportData).flatMap(marketData => Object.values(marketData))
-		);
 
-        io.emit("latest_odds", lastFetchedOdds); // Toujours envoyer toutes les cotes connues
+        // 🔥 Évite d'envoyer trop souvent les mêmes cotes au WebSocket
+        latestOdds = Object.values(lastFetchedOdds).flatMap(sportData =>
+            Object.values(sportData).flatMap(marketData => Object.values(marketData))
+        );
+
+        io.emit("latest_odds", latestOdds); // Toujours envoyer les cotes connues
 
     } catch (error) {
         console.error("❌ Erreur lors de la récupération des cotes :", error);
