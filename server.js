@@ -202,8 +202,32 @@ async function fetchOdds() {
     }
 }
 
-// 📌 Exécuter toutes les 30 secondes, mais n’appeler l’API que si nécessaire
-setInterval(fetchOdds, 30000);
+
+async function isBetAlreadyRecorded(eventName, bookmakers) {
+    if (bookmakers.length === 0) return false; // 🔥 Évite une requête inutile
+
+    try {
+        const query = { event: eventName };
+
+        // Si plusieurs bookmakers, utiliser $or pour chercher dans les deux champs
+        if (bookmakers.length > 1) {
+            query.$or = [{ bookmaker1: { $in: bookmakers } }, { bookmaker2: { $in: bookmakers } }];
+        } else {
+            // Si un seul bookmaker, chercher uniquement dans bookmaker1 (plus rapide)
+            query.bookmaker1 = bookmakers[0];
+        }
+
+        // ⚡ Ne récupérer que l'ID, pas tout le document (optimisation)
+        const existingBet = await Odds.findOne(query, { _id: 1 });
+
+        return !!existingBet; // Retourne true si un pari existe déjà, sinon false
+    } catch (error) {
+        console.error("❌ Erreur lors de la vérification en base :", error);
+        return false;
+    }
+}
+
+
 
 
 async function processOdds(sport, market, odds) {
@@ -239,10 +263,22 @@ async function processOdds(sport, market, odds) {
             console.log(`💰 Opportunité trouvée sur ${sport} (${market}) ! Profit : ${arbitrage.percentage}%`);
 			
 			const arbitrageKey = `${event.home_team} vs ${event.away_team} - ${arbitrage.bets.map(bet => bet.bookmaker).join(",")}`;
+
 			if (sentArbitrages.has(arbitrageKey)) {
 				console.log(`⚠️ Déjà envoyé : ${arbitrageKey}, on ignore.`);
 				continue;
 			}
+
+			const eventName = `${event.home_team} vs ${event.away_team}`;
+			const bookmakersList = arbitrage.bets.map(bet => bet.bookmaker);
+
+			// 🔥 Vérification rapide avant insertion
+			if (await isBetAlreadyRecorded(eventName, bookmakersList)) {
+				console.log(`⚠️ Arbitrage ignoré : un pari avec un même bookmaker a déjà été enregistré pour ${eventName}.`);
+				continue;
+			}
+
+			// Ajout dans la mémoire locale après validation
 			sentArbitrages.add(arbitrageKey);
 
             const dataToInsert = {
