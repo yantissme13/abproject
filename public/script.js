@@ -6,20 +6,29 @@ document.addEventListener("DOMContentLoaded", () => {
     
     let allArbitrages = []; // Stocke toutes les opportunités d'arbitrage complètes
     let bookmakersData = {}; // Stocke les stats par bookmaker
+    let latestOdds = [];
+	console.log("🟢 latestOdds initialisé :", latestOdds);
 
     console.log("🟢 Connecté au WebSocket !");
 
     socket.on("latest_odds", (oddsData) => {
 		console.log("📡 Données reçues depuis WebSocket :", oddsData);
 
-		if (!oddsData || oddsData.length === 0) {
+		if (!oddsData || (Array.isArray(oddsData) && oddsData.length === 0)) {
+			console.warn("⚠️ Aucune donnée d'arbitrage reçue.");
 			return;
+		}
+
+		// Vérifier si oddsData est un tableau, sinon le convertir
+		if (!Array.isArray(oddsData)) {
+			console.warn("⚠️ oddsData n'est pas un tableau, conversion en tableau appliquée.");
+			oddsData = Object.values(oddsData);
 		}
 
 		const newArbitrages = {}; // Stock temporaire des nouvelles opportunités
 
 		oddsData.forEach(({ event, arbitrage }) => {
-			if (!arbitrage || arbitrage.bets.length < 2) return;
+			if (!arbitrage || !arbitrage.bets || arbitrage.bets.length < 2) return;
 
 			const eventKey = `${event.home_team} vs ${event.away_team}`;
 
@@ -32,6 +41,9 @@ document.addEventListener("DOMContentLoaded", () => {
 				};
 			}
 		});
+
+		console.log("📊 Nombre d'opportunités d'arbitrage détectées :", Object.keys(newArbitrages).length);
+
 
 		// Supprimer les arbitrages obsolètes qui ne sont plus dans la nouvelle liste
 				Object.keys(allArbitrages).forEach(eventKey => {
