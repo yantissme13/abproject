@@ -317,8 +317,19 @@ function calculateArbitrage(event) {
     return null;
 }
 
-fetchOdds();
-setInterval(fetchOdds, 30000);
+async function adaptiveFetchOdds() {
+    await fetchOdds(); // Exécuter immédiatement
+
+    // 🔥 Ajuster la fréquence des appels API selon la quantité de cotes mises à jour
+    let fetchInterval = latestOdds.length > 20 ? 30000 : 120000; // 30s si beaucoup de cotes changent, sinon 2 minutes
+    console.log(`⏳ Prochain fetch dans ${fetchInterval / 1000} secondes...`);
+
+    setTimeout(adaptiveFetchOdds, fetchInterval);
+}
+
+// Démarrer l'exécution adaptative
+adaptiveFetchOdds();
+
 
 // 🔹 Démarre le serveur HTTP + WebSocket
 const http = require('http');
