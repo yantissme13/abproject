@@ -65,28 +65,34 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 const sendTelegramAlert = async (match, arbitrage) => {
     const TOTAL_AMOUNT = 20;
-    let message = `🚀 Opportunité d’arbitrage détectée !\n`;
-    message += `📅 Match : ${match.home_team} vs ${match.away_team}\n`;
-    message += `🏟️ Compétition : ${match.league || match.sport || "N/A"}\n\n`;
-    message += `💰 Profit potentiel : ${arbitrage.percentage}%\n\n`;
+    let message = `🚀 *Opportunité d’Arbitrage Détectée !*\n\n`;
+    
+    // 📌 Match en gras
+    message += `📅 *Match :* ${match.home_team} vs ${match.away_team}\n`;
+    
+    // 📌 Profit potentiel en gras et avec icône
+    message += `💰 *Profit Potentiel :* *${arbitrage.percentage}%*\n\n`;
 
     let totalProb = arbitrage.bets.reduce((acc, bet) => acc + (1 / bet.odds), 0);
-    message += `📊 Bookmakers et mises optimales (sur ${TOTAL_AMOUNT}€) :\n`;
+
+    // 📌 Affichage des bookmakers et mises optimales
+    message += `📊 *Bookmakers et mises optimales* (sur *${TOTAL_AMOUNT}€*) :\n`;
     arbitrage.bets.forEach(bet => {
         const stake = (TOTAL_AMOUNT * (1 / bet.odds)) / totalProb;
-        message += `🏦 ${bet.bookmaker} - ${bet.team} | Cote : ${bet.odds} | Mise : ${stake.toFixed(2)}€\n`;
+        message += `🏦 *${bet.bookmaker}* - *${bet.team}* | Cote : *${bet.odds}* | Mise : *${stake.toFixed(2)}€*\n`;
     });
 
+    // 🔹 Paramètres de tentatives et délai entre les retries
     const maxRetries = 5; // Nombre de tentatives avant d'abandonner
     const baseDelay = 3000; // 3 secondes entre chaque retry
 
-    // Exécuter l'envoi dans un setTimeout pour éviter de bloquer le traitement des autres opportunités
     setTimeout(async () => {
         for (let retries = 0; retries < maxRetries; retries++) {
             try {
                 await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
                     chat_id: TELEGRAM_CHAT_ID,
                     text: message,
+                    parse_mode: "Markdown" // Utilisation de Markdown pour le texte en gras
                 });
                 console.log(`✅ Notification envoyée à Telegram après ${retries} tentative(s).`);
                 return;
@@ -94,14 +100,14 @@ const sendTelegramAlert = async (match, arbitrage) => {
                 if (error.response && error.response.status === 429) {
                     let waitTime = (error.response.headers["retry-after"] || (baseDelay * (retries + 1))) * 1000;
                     console.warn(`⚠️ Telegram Rate Limit atteint. Réessai dans ${waitTime / 1000} secondes...`);
-                    await new Promise(resolve => setTimeout(resolve, waitTime)); // Correcte l'attente
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
                 } else {
                     console.error("🔴 Erreur lors de l'envoi de l'alerte Telegram :", error.message);
                     return;
                 }
             }
         }
-    }, 0); // Lancer immédiatement en asynchrone
+    }, 0);
 };
 
 const ARBITRAGE_EXPIRATION_TIME = 300000; // Supprime les arbitrages après 5 minutes
@@ -242,15 +248,35 @@ async function processOdds(sport, market, odds) {
 
     for (const event of odds) {
         const eventDate = new Date(event.commence_time);
-        const now = new Date();
+		const now = new Date();
 
-        const today = now.toISOString().split("T")[0];
-        const eventDay = eventDate.toISOString().split("T")[0];
+		// 📌 Calcul des dates acceptées (Aujourd'hui + 3, 4, 5, 6 jours)
+		const today = now.toISOString().split("T")[0];
+		const threeDaysLater = new Date();
+		threeDaysLater.setDate(now.getDate() + 3);
+		const fourDaysLater = new Date();
+		fourDaysLater.setDate(now.getDate() + 4);
+		const fiveDaysLater = new Date();
+		fiveDaysLater.setDate(now.getDate() + 5);
+		const sixDaysLater = new Date();
+		sixDaysLater.setDate(now.getDate() + 6);
 
-        if (eventDay !== today) {
-            console.log("🚫 Événement ignoré (ne commence pas aujourd’hui) :", event.commence_time);
-            continue;
-        }
+		// 📌 Convertir les dates en format AAAA-MM-JJ
+		const eventDay = eventDate.toISOString().split("T")[0];
+		const acceptedDays = [
+			today,
+			threeDaysLater.toISOString().split("T")[0],
+			fourDaysLater.toISOString().split("T")[0],
+			fiveDaysLater.toISOString().split("T")[0],
+			sixDaysLater.toISOString().split("T")[0]
+		];
+
+		// 📌 Vérification
+		if (!acceptedDays.includes(eventDay)) {
+			console.log("🚫 Événement ignoré (hors de la plage des 6 jours) :", event.commence_time);
+			continue;
+		}
+
 
         const arbitrage = calculateArbitrage(event);
 
