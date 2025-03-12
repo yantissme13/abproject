@@ -63,12 +63,14 @@ const telegramQueue = new Queue("TELEGRAM_QUEUE", { connection: { url: process.e
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-const sendTelegramAlert = async (match, arbitrage) => {
+const sendTelegramAlert = async (match, arbitrage, eventDateFormatted) => {
     const TOTAL_AMOUNT = 20;
     let message = `🚀 *Opportunité d’Arbitrage Détectée !*\n\n`;
     
     // 📌 Match en gras
     message += `📅 *Match :* ${match.home_team} vs ${match.away_team}\n`;
+	message += `📆 *Date :* ${eventDateFormatted || "Non spécifiée"}\n`;
+	
     
     // 📌 Profit potentiel en gras et avec icône
     message += `💰 *Profit Potentiel :* *${arbitrage.percentage}%*\n\n`;
@@ -252,6 +254,7 @@ async function processOdds(sport, market, odds) {
 
 		// 📌 Calcul des dates acceptées (Aujourd'hui + 3, 4, 5, 6 jours)
 		const today = now.toISOString().split("T")[0];
+		const today = now.toISOString().split("T")[0];
 		const threeDaysLater = new Date();
 		threeDaysLater.setDate(now.getDate() + 3);
 		const fourDaysLater = new Date();
@@ -260,6 +263,22 @@ async function processOdds(sport, market, odds) {
 		fiveDaysLater.setDate(now.getDate() + 5);
 		const sixDaysLater = new Date();
 		sixDaysLater.setDate(now.getDate() + 6);
+		const sevenDaysLater = new Date();
+		sevenDaysLater.setDate(now.getDate() + 7);
+		const eightDaysLater = new Date();
+		eightDaysLater.setDate(now.getDate() + 8);
+		const nineDaysLater = new Date();
+		nineDaysLater.setDate(now.getDate() + 9);
+		const tenDaysLater = new Date();
+		tenDaysLater.setDate(now.getDate() + 10);
+		const elevenDaysLater = new Date();
+		elevenDaysLater.setDate(now.getDate() + 11);
+		const twelveDaysLater = new Date();
+		twelveDaysLater.setDate(now.getDate() + 12);
+		const thirteenDaysLater = new Date();
+		thirteenDaysLater.setDate(now.getDate() + 13);
+		const fourteenDaysLater = new Date();
+		fourteenDaysLater.setDate(now.getDate() + 14);
 
 		// 📌 Convertir les dates en format AAAA-MM-JJ
 		const eventDay = eventDate.toISOString().split("T")[0];
@@ -268,12 +287,20 @@ async function processOdds(sport, market, odds) {
 			threeDaysLater.toISOString().split("T")[0],
 			fourDaysLater.toISOString().split("T")[0],
 			fiveDaysLater.toISOString().split("T")[0],
-			sixDaysLater.toISOString().split("T")[0]
+			sixDaysLater.toISOString().split("T")[0],
+			sevenDaysLater.toISOString().split("T")[0],
+			eightDaysLater.toISOString().split("T")[0],
+			nineDaysLater.toISOString().split("T")[0],
+			tenDaysLater.toISOString().split("T")[0],
+			elevenDaysLater.toISOString().split("T")[0],
+			twelveDaysLater.toISOString().split("T")[0],
+			thirteenDaysLater.toISOString().split("T")[0],
+			fourteenDaysLater.toISOString().split("T")[0]
 		];
 
 		// 📌 Vérification
 		if (!acceptedDays.includes(eventDay)) {
-			console.log("🚫 Événement ignoré (hors de la plage des 6 jours) :", event.commence_time);
+			console.log("🚫 Événement ignoré (hors de la plage des 14 jours) :", event.commence_time);
 			continue;
 		}
 
@@ -299,29 +326,58 @@ async function processOdds(sport, market, odds) {
 			const bookmakersList = arbitrage.bets.map(bet => bet.bookmaker);
 
 			// 🔥 Vérification rapide avant insertion
-			if (await isBetAlreadyRecorded(eventName, bookmakersList)) {
-				console.log(`⚠️ Arbitrage ignoré : un pari avec un même bookmaker a déjà été enregistré pour ${eventName}.`);
-				continue;
-			}
+			const alreadyRecorded = await isBetAlreadyRecorded(eventName, bookmakersList);
+            if (alreadyRecorded) {
+                console.log(`⚠️ Arbitrage ignoré : un pari avec un même bookmaker a déjà été enregistré pour ${eventName}.`);
+                continue;
+            }
 
 			// Ajout dans la mémoire locale après validation
 			sentArbitrages.add(arbitrageKey);
 
+			const eventDate = new Date(event.commence_time);
+			const eventDateFormatted = eventDate.toLocaleString("fr-FR", {
+				weekday: "long", 
+				year: "numeric", 
+				month: "long", 
+				day: "numeric", 
+				hour: "2-digit", 
+				minute: "2-digit"
+			});	
+			
+			
             const dataToInsert = {
                 sport: sport,
-                league: event.league || "N/A",
-                event: `${event.home_team} vs ${event.away_team}`,
-                home_team: event.home_team,
-                away_team: event.away_team,
-                bookmaker1: arbitrage.bets[0].bookmaker,
-                bookmaker2: arbitrage.bets[1]?.bookmaker || "N/A",
-                team_to_bet1: arbitrage.bets[0].team,
-                team_to_bet2: arbitrage.bets[1]?.team || "N/A",
-                best_odds1: arbitrage.bets[0].odds,
-                best_odds2: arbitrage.bets[1]?.odds || 0,
-                stake1: (18 / arbitrage.bets[0].odds).toFixed(2),
-                stake2: arbitrage.bets[1] ? (18 / arbitrage.bets[1].odds).toFixed(2) : "0",
-                profit: `${arbitrage.percentage}%`
+				league: event.league || "N/A",
+				event: `${event.home_team} vs ${event.away_team}`,
+				event_date: event.commence_time,  // ✅ Ajout de la date de l'événement
+				home_team: event.home_team,
+				away_team: event.away_team,
+				bookmaker1: arbitrage.bets[0].bookmaker,
+				bookmaker2: arbitrage.bets[1]?.bookmaker || "N/A",
+				team_to_bet1: arbitrage.bets[0].team,
+				team_to_bet2: arbitrage.bets[1]?.team || "N/A",
+				best_odds1: arbitrage.bets[0].odds,
+				best_odds2: arbitrage.bets[1]?.odds || 0,
+				stake1: (18 / arbitrage.bets[0].odds).toFixed(2),
+				stake2: arbitrage.bets[1] ? (18 / arbitrage.bets[1].odds).toFixed(2) : "0",
+				profit: `${arbitrage.percentage}%`,
+				timestamp: new Date().toISOString(),
+
+				// ✅ Ajouter un tableau des Over/Under pour récupérer toutes les options possibles
+				over_under_details: arbitrage.bets
+				.filter(bet => bet.market === "totals")  // ✅ Filtrer uniquement les Over/Under
+				.map(bet => {
+					console.log(`📌 Over/Under détecté : ${bet.bookmaker} | ${bet.team} ${bet.point} | Cote: ${bet.odds}`);
+					return {
+						bookmaker: bet.bookmaker,
+						type: bet.team,  // "Over" ou "Under"
+						point: bet.point,  // Le seuil (ex: 2.5 buts, 3.5 sets)
+						odds: bet.odds  // La cote associée
+					};
+				}),
+
+
             };
 
             console.log("📌 Tentative d'insertion de données MongoDB :", dataToInsert);
