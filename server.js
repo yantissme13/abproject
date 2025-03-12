@@ -254,7 +254,6 @@ async function processOdds(sport, market, odds) {
 
 		// 📌 Calcul des dates acceptées (Aujourd'hui + 3, 4, 5, 6 jours)
 		const today = now.toISOString().split("T")[0];
-		const today = now.toISOString().split("T")[0];
 		const threeDaysLater = new Date();
 		threeDaysLater.setDate(now.getDate() + 3);
 		const fourDaysLater = new Date();
