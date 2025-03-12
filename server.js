@@ -252,7 +252,7 @@ async function processOdds(sport, market, odds) {
         const eventDate = new Date(event.commence_time);
 		const now = new Date();
 
-		// 📌 Calcul des dates acceptées (Aujourd'hui + 3, 4, 5, 6 jours)
+		// 📌 Calcul des dates acceptées (Aujourd'hui + 3, 4, 5, 6... 14 jours)
 		const today = now.toISOString().split("T")[0];
 		const threeDaysLater = new Date();
 		threeDaysLater.setDate(now.getDate() + 3);
@@ -394,9 +394,10 @@ async function processOdds(sport, market, odds) {
                 console.error("❌ Erreur lors de l'insertion MongoDB :", error);
             }
 
-            sendTelegramAlert(event, arbitrage).catch(err => 
-                console.error("❌ Erreur envoi Telegram :", err)
-            );
+            sendTelegramAlert(event, arbitrage, eventDateFormatted).catch(err => 
+				console.error("❌ Erreur envoi Telegram :", err)
+			);
+
         }
     }
 

@@ -26,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
 		}
 
 		const newArbitrages = {}; // Stock temporaire des nouvelles opportunités
+		
 
 		oddsData.forEach(({ event, arbitrage }) => {
 			if (!arbitrage || !arbitrage.bets || arbitrage.bets.length < 2) return;
@@ -41,7 +42,20 @@ document.addEventListener("DOMContentLoaded", () => {
 				};
 			}
 		});
-
+		
+		Object.values(newArbitrages).forEach(arbitrage => {
+			arbitrage.bets.forEach(bet => {
+				if (!bookmakersData[bet.bookmaker]) {
+					bookmakersData[bet.bookmaker] = { count: 0, totalROI: 0, bets: [] };
+					addBookmakerToDisplay(bet.bookmaker);
+				}
+				bookmakersData[bet.bookmaker].count++;
+				bookmakersData[bet.bookmaker].totalROI += arbitrage.profit;
+				bookmakersData[bet.bookmaker].bets.push(arbitrage);
+				updateBookmakerStats(bet.bookmaker);
+			});
+		});
+		
 		console.log("📊 Nombre d'opportunités d'arbitrage détectées :", Object.keys(newArbitrages).length);
 
 
@@ -102,17 +116,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     function addBookmakerToDisplay(bookmaker) {
-        let listItem = document.createElement("li");
-        listItem.id = `bookmaker-${bookmaker}`;
-        listItem.innerHTML = `
-            <strong>${bookmaker}</strong> 
-            (<span class="bet-count">0</span> paris) - 
-            ROI Moyen : <span class="roi">0%</span>
-            <button onclick="toggleBookmakerBets('${bookmaker}')">Voir les paris</button>
-            <ul id="bookmaker-bets-${bookmaker}" class="bookmaker-bets" style="display: none;"></ul>
-        `;
-        bookmakersList.appendChild(listItem);
-    }
+		if (bookmakersList.innerHTML.includes("Aucun bookmaker détecté")) {
+			bookmakersList.innerHTML = ""; // Supprime le message "Aucun bookmaker détecté"
+		}
+		
+		let listItem = document.createElement("li");
+		listItem.id = `bookmaker-${bookmaker}`;
+		listItem.innerHTML = `
+			<strong>${bookmaker}</strong> 
+			(<span class="bet-count">0</span> paris) - 
+			ROI Moyen : <span class="roi">0%</span>
+			<button onclick="toggleBookmakerBets('${bookmaker}')">Voir les paris</button>
+			<ul id="bookmaker-bets-${bookmaker}" class="bookmaker-bets" style="display: none;"></ul>
+		`;
+		bookmakersList.appendChild(listItem);
+	}
+
 
     function updateBookmakerStats(bookmaker) {
         let listItem = document.getElementById(`bookmaker-${bookmaker}`);
@@ -120,9 +139,18 @@ document.addEventListener("DOMContentLoaded", () => {
         listItem.querySelector(".roi").textContent = `${(bookmakersData[bookmaker].totalROI / bookmakersData[bookmaker].count).toFixed(2)}%`;
     }
 
-    function updateTotalArbitrage() {
-        totalArbitrage.textContent = allArbitrages.length;
-    }
+	function updateTotalArbitrage() {
+		// Nettoyage des arbitrages expirés
+		Object.keys(allArbitrages).forEach(eventKey => {
+			if (!latestOdds.some(odd => odd.eventKey === eventKey)) {
+				delete allArbitrages[eventKey];
+			}
+		});
+
+
+		totalArbitrage.textContent = Object.keys(allArbitrages).length;
+	}
+
 
     window.toggleBookmakerBets = function (bookmaker) {
         const betsContainer = document.getElementById(`bookmaker-bets-${bookmaker}`);
