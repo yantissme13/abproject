@@ -407,6 +407,7 @@ async function processOdds(sport, market, odds) {
 
 
 function calculateArbitrage(event) {
+	console.log(`📥 Calcul arbitrage pour ${event.home_team} vs ${event.away_team}`);
     if (!event?.bookmakers?.length) return null;
     let bestOdds = {};
 
@@ -423,7 +424,7 @@ function calculateArbitrage(event) {
 			}
 		}
 	}
-	
+	const bets = Object.values(bestOdds);
 	// ✅ ⛔️ Filtrer : autoriser uniquement les marchés à 2 issues (exactement 2 cotes)
 	if (bets.length !== 2) {
 		console.log(`🚫 Ignoré : marché à ${bets.length} issues`);
