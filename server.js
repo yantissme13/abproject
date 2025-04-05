@@ -423,7 +423,12 @@ function calculateArbitrage(event) {
 			}
 		}
 	}
-
+	
+	// ✅ ⛔️ Filtrer : autoriser uniquement les marchés à 2 issues (exactement 2 cotes)
+	if (bets.length !== 2) {
+		console.log(`🚫 Ignoré : marché à ${bets.length} issues`);
+		return null;
+	}
 
     let sum = Object.values(bestOdds).reduce((acc, bet) => acc + (1 / bet.odds), 0);
     if (sum < 1) {

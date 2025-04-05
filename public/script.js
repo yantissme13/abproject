@@ -74,6 +74,9 @@ document.addEventListener("DOMContentLoaded", () => {
 			allArbitrages[eventKey] = newArbitrages[eventKey];
 			addOrUpdateArbitrageToDisplay(eventKey, newArbitrages[eventKey]);
 		});
+		
+		console.log("🔍 allArbitrages après mise à jour :", allArbitrages);
+		console.log("🔍 Nombre d'opportunités détectées :", Object.keys(allArbitrages).length);
 
 		updateTotalArbitrage();
 	});
